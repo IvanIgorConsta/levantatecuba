@@ -76,8 +76,10 @@ router.post('/scan', scanLimiter, requireEditor, async (req, res) => {
     const config = await AiConfig.getSingleton();
     
     if (config.isScanning) {
-      return res.status(409).json({ 
-        error: 'Ya hay un escaneo en curso',
+      return res.status(429).json({ 
+        ok: false,
+        code: 'SCAN_IN_PROGRESS',
+        message: 'Ya hay un escaneo en curso',
         isScanning: true 
       });
     }
@@ -116,6 +118,7 @@ router.post('/scan', scanLimiter, requireEditor, async (req, res) => {
         });
       
       res.json({ 
+        ok: true,
         message: 'Escaneo Cuba estricto iniciado',
         mode: 'cuba_estricto',
         isScanning: true,
@@ -128,7 +131,7 @@ router.post('/scan', scanLimiter, requireEditor, async (req, res) => {
       
       scanSources()
         .then(result => {
-          console.log('[API] ✅ Escaneo global completado:', result.topicsFound, 'temas');
+          console.log('[API] ✅ Escaneo global completado:', result.length || result.topicsFound || 0, 'temas');
         })
         .catch(err => {
           console.error('[API] ❌ Error en escaneo global:', err);
@@ -142,6 +145,7 @@ router.post('/scan', scanLimiter, requireEditor, async (req, res) => {
         });
       
       res.json({ 
+        ok: true,
         message: 'Escaneo global iniciado',
         mode: 'global',
         isScanning: true 
@@ -157,7 +161,15 @@ router.post('/scan', scanLimiter, requireEditor, async (req, res) => {
       { isScanning: false }
     );
     
-    res.status(500).json({ error: 'Error al iniciar escaneo' });
+    // Manejo específico de errores con códigos
+    const statusCode = error.statusCode || 500;
+    const errorCode = error.code || 'SCAN_ERROR';
+    
+    res.status(statusCode).json({ 
+      ok: false,
+      code: errorCode,
+      message: error.message || 'Error al iniciar escaneo' 
+    });
   }
 });
 
@@ -373,29 +385,39 @@ router.post('/generate', generateLimiter, requireEditor, async (req, res) => {
     const { topicIds, mode = 'factual', formatStyle = 'standard' } = req.body;
     
     if (!topicIds || !Array.isArray(topicIds) || topicIds.length === 0) {
-      return res.status(400).json({ error: 'Se requiere array de topicIds' });
+      return res.status(400).json({ 
+        ok: false, 
+        code: 'INVALID_INPUT',
+        error: 'Se requiere array de topicIds' 
+      });
     }
     
     if (!['factual', 'opinion'].includes(mode)) {
-      return res.status(400).json({ error: 'Modo inválido (factual|opinion)' });
+      return res.status(400).json({ 
+        ok: false,
+        code: 'INVALID_MODE',
+        error: 'Modo inválido (factual|opinion)' 
+      });
     }
     
     if (!['standard', 'lectura_viva'].includes(formatStyle)) {
-      return res.status(400).json({ error: 'Formato inválido (standard|lectura_viva)' });
+      return res.status(400).json({ 
+        ok: false,
+        code: 'INVALID_FORMAT',
+        error: 'Formato inválido (standard|lectura_viva)' 
+      });
     }
     
-    // Generar en background
-    generateDrafts(topicIds, req.user, mode, formatStyle)
-      .then(drafts => {
-        console.log(`[API] ${drafts.length} borradores generados por ${req.user.email} (formato: ${formatStyle})`);
-      })
-      .catch(err => {
-        console.error('[API] Error generando borradores:', err);
-      });
+    // Generar borradores (esto verifica el lock inmediatamente)
+    // Si hay lock, lanza error antes de comenzar el trabajo
+    const drafts = await generateDrafts(topicIds, req.user, mode, formatStyle);
+    
+    console.log(`[API] ${drafts.length} borradores generados por ${req.user.email} (formato: ${formatStyle})`);
     
     res.json({ 
       ok: true,
-      message: `Generando ${topicIds.length} borradores en modo ${mode} (formato: ${formatStyle})`,
+      message: `${drafts.length} borrador${drafts.length > 1 ? 'es' : ''} generado${drafts.length > 1 ? 's' : ''} exitosamente`,
+      count: drafts.length,
       topicIds,
       mode,
       formatStyle
@@ -403,7 +425,16 @@ router.post('/generate', generateLimiter, requireEditor, async (req, res) => {
     
   } catch (error) {
     console.error('[API] Error iniciando generación:', error);
-    res.status(500).json({ error: 'Error al iniciar generación' });
+    
+    // Manejo específico de errores con códigos
+    const statusCode = error.statusCode || 500;
+    const errorCode = error.code || 'GENERATION_ERROR';
+    
+    res.status(statusCode).json({ 
+      ok: false,
+      code: errorCode,
+      message: error.message || 'Error al iniciar generación' 
+    });
   }
 });
 

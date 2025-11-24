@@ -17,6 +17,9 @@ const {
   canonicalUrl
 } = require('../config/freshness');
 
+// Control de concurrencia: Map por tenant para evitar escaneos simultáneos
+const scanningByTenant = new Map();
+
 // Keep-alive agent para reutilizar conexiones
 const httpsAgent = new https.Agent({
   keepAlive: true,
@@ -141,6 +144,19 @@ async function scanSources() {
   const scanStartTime = Date.now();
   
   const config = await AiConfig.getSingleton();
+  const tenantKey = config.defaultTenant || 'levantatecuba';
+  
+  // Verificar si ya hay un escaneo en curso para este tenant
+  if (scanningByTenant.get(tenantKey)) {
+    const error = new Error('Ya hay un escaneo en curso. Por favor espera a que termine.');
+    error.code = 'SCAN_IN_PROGRESS';
+    error.statusCode = 429;
+    throw error;
+  }
+  
+  // Marcar como escaneando
+  scanningByTenant.set(tenantKey, true);
+  console.log(`[Crawler] 🔒 Candado de escaneo activado para tenant: ${tenantKey}`);
   
   // Parseo seguro de configuración
   const maxTopicsPerScan = Math.max(1, Math.min(20, toInt(config.maxTopicsPerScan, 8)));
@@ -564,7 +580,11 @@ async function scanSources() {
     
     throw error;
   } finally {
-    // Desmarcar como escaneando
+    // SIEMPRE liberar el candado de concurrencia
+    scanningByTenant.set(tenantKey, false);
+    console.log(`[Crawler] 🔓 Candado de escaneo liberado para tenant: ${tenantKey}`);
+    
+    // Desmarcar como escaneando en config
     await AiConfig.findOneAndUpdate(
       { singleton: true },
       { isScanning: false }

@@ -16,6 +16,21 @@ const compression = require('compression');
 // Variables de entorno con fallbacks
 process.env.PUBLIC_ORIGIN = process.env.PUBLIC_ORIGIN || 'https://levantatecuba.com';
 
+// Handlers globales de errores no capturados (evitar caídas del proceso)
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('⚠️  UNHANDLED REJECTION detectado:');
+  console.error('Promise:', promise);
+  console.error('Reason:', reason);
+  // NO hacer process.exit() - dejar que PM2 maneje el proceso
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('⚠️  UNCAUGHT EXCEPTION detectado:');
+  console.error('Error:', err);
+  console.error('Stack:', err.stack);
+  // NO hacer process.exit() - dejar que PM2 maneje el proceso
+});
+
 // 2) Conectar a MongoDB
 connectDB();
 

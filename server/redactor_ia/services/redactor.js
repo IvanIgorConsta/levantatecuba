@@ -25,6 +25,9 @@ const crypto = require('crypto');
 const MIN_CONTENT_LENGTH_FACTUAL = 3000; // Mínimo absoluto para FACTUAL
 const MIN_CONTENT_LENGTH_OPINION = 600;  // Mínimo para OPINIÓN
 
+// Control de concurrencia: Map por tenant para evitar generaciones simultáneas
+const generatingByTenant = new Map();
+
 // Inicializar cliente Anthropic (Claude)
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY,
@@ -218,39 +221,60 @@ function parseCleanJSON(text, verbose = true, isJsonMode = false) {
  * @param {string} formatStyle - 'standard' o 'lectura_viva'
  */
 async function generateDrafts(topicIds, user, mode = 'factual', formatStyle = 'standard') {
-  console.log(`[Redactor] Generando ${topicIds.length} borradores en modo ${mode} (formato: ${formatStyle})...`);
+  // Obtener tenantId para el candado de concurrencia
   const config = await AiConfig.getSingleton();
-  const drafts = [];
-
-  for (const topicId of topicIds) {
-    try {
-      const topic = await AiTopic.findOne({ idTema: topicId });
-      if (!topic) {
-        console.warn(`[Redactor] Tema ${topicId} no encontrado`);
-        continue;
-      }
-
-      // Selección del topic
-      topic.status = 'selected';
-      topic.selectedBy = user?._id || null;
-      topic.selectedAt = new Date();
-      await topic.save();
-
-      // Generar borrador
-      const draft = await generateSingleDraft(topic, user || null, mode, config, formatStyle);
-      drafts.push(draft);
-
-      // Marcar como archived para eliminarlo de la cola
-      topic.status = 'archived';
-      topic.archivedAt = new Date();
-      await topic.save();
-    } catch (error) {
-      console.error(`[Redactor] Error generando borrador para ${topicId}:`, error);
-    }
+  const tenantKey = config.defaultTenant || 'levantatecuba';
+  
+  // Verificar si ya hay una generación en curso para este tenant
+  if (generatingByTenant.get(tenantKey)) {
+    const error = new Error('Ya hay una generación en curso. Por favor espera a que termine.');
+    error.code = 'GENERATION_IN_PROGRESS';
+    error.statusCode = 429;
+    throw error;
   }
+  
+  // Marcar como generando
+  generatingByTenant.set(tenantKey, true);
+  console.log(`[Redactor] 🔒 Candado de generación activado para tenant: ${tenantKey}`);
+  
+  try {
+    console.log(`[Redactor] Generando ${topicIds.length} borradores en modo ${mode} (formato: ${formatStyle})...`);
+    const drafts = [];
 
-  console.log(`[Redactor] ${drafts.length} borradores generados exitosamente`);
-  return drafts;
+    for (const topicId of topicIds) {
+      try {
+        const topic = await AiTopic.findOne({ idTema: topicId });
+        if (!topic) {
+          console.warn(`[Redactor] Tema ${topicId} no encontrado`);
+          continue;
+        }
+
+        // Selección del topic
+        topic.status = 'selected';
+        topic.selectedBy = user?._id || null;
+        topic.selectedAt = new Date();
+        await topic.save();
+
+        // Generar borrador
+        const draft = await generateSingleDraft(topic, user || null, mode, config, formatStyle);
+        drafts.push(draft);
+
+        // Marcar como archived para eliminarlo de la cola
+        topic.status = 'archived';
+        topic.archivedAt = new Date();
+        await topic.save();
+      } catch (error) {
+        console.error(`[Redactor] Error generando borrador para ${topicId}:`, error);
+      }
+    }
+
+    console.log(`[Redactor] ${drafts.length} borradores generados exitosamente`);
+    return drafts;
+  } finally {
+    // SIEMPRE liberar el candado, pase lo que pase
+    generatingByTenant.set(tenantKey, false);
+    console.log(`[Redactor] 🔓 Candado de generación liberado para tenant: ${tenantKey}`);
+  }
 }
 
 /**

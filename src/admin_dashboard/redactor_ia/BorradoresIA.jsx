@@ -47,6 +47,19 @@ export default function BorradoresIA() {
     };
   }, [revisionPolling]);
 
+  // Cleanup general al desmontar: resetear estados de generación
+  useEffect(() => {
+    return () => {
+      // Limpiar estados de generación de imágenes
+      setIsGeneratingImage({});
+      setIsReviewing({});
+      setIsPublishing({});
+      
+      // Limpiar polling de revisiones
+      Object.values(revisionPolling).forEach(intervalId => clearInterval(intervalId));
+    };
+  }, []);
+
   // Cerrar dropdown "Cambios" e "Imagen" al hacer clic fuera
   useEffect(() => {
     const handleClickOutside = (event) => {

@@ -10,6 +10,7 @@ export default function ColaTemas() {
   const [topics, setTopics] = useState([]);
   const [loading, setLoading] = useState(true);
   const [scanning, setScanning] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [isBulkBusy, setIsBulkBusy] = useState(false);
   const [generatingById, setGeneratingById] = useState({});
@@ -27,6 +28,16 @@ export default function ColaTemas() {
     fetchTopics();
     checkScanStatus();
   }, [filters]);
+
+  // Cleanup al desmontar: resetear estados
+  useEffect(() => {
+    return () => {
+      // Limpiar estados de generación
+      setIsGenerating(false);
+      setScanning(false);
+      setGeneratingById({});
+    };
+  }, []);
 
   const fetchTopics = async () => {
     try {
@@ -85,13 +96,19 @@ export default function ColaTemas() {
         }
       });
       
+      const data = await res.json();
+      
       if (!res.ok) {
-        const data = await res.json();
-        toast.error(data.error || 'Error al iniciar escaneo', { id: 'scan' });
+        // Manejo específico de código SCAN_IN_PROGRESS
+        if (data.code === 'SCAN_IN_PROGRESS') {
+          toast.error('⏳ Ya hay un escaneo en curso. Espera a que termine.', { id: 'scan', duration: 3000 });
+        } else {
+          toast.error(data.message || data.error || 'Error al iniciar escaneo', { id: 'scan' });
+        }
         return;
       }
       
-      const scanData = await res.json();
+      const scanData = data;
       const isCubaStrict = scanData.mode === 'cuba_estricto';
       
       toast.success(
@@ -181,9 +198,17 @@ export default function ColaTemas() {
       return;
     }
     
+    // Bloquear si ya hay una generación en curso
+    if (isGenerating) {
+      toast.error('Ya hay una generación en curso. Espera a que termine.');
+      return;
+    }
+    
     const selectedCount = selectedIds.size;
     const selectedTopicIds = Array.from(selectedIds);
     const modeLabel = mode === 'factual' ? 'factual' : 'opinión';
+    
+    setIsGenerating(true);
     
     // Marcar todos los seleccionados como "loading"
     selectedTopicIds.forEach(id => setGen(id, 'loading'));
@@ -205,6 +230,8 @@ export default function ColaTemas() {
           mode
         })
       });
+      
+      const data = await res.json();
       
       if (res.ok) {
         // Marcar como "done" antes de eliminar
@@ -252,9 +279,20 @@ export default function ColaTemas() {
           { id: 'generate', duration: 4000 }
         );
       } else {
-        const data = await res.json();
         selectedTopicIds.forEach(id => setGen(id, 'error'));
-        toast.error(data.error || '❌ Error al generar el borrador. Intenta nuevamente.', { id: 'generate', duration: 4000 });
+        
+        // Manejo específico de código GENERATION_IN_PROGRESS
+        if (data.code === 'GENERATION_IN_PROGRESS') {
+          toast.error('⏳ Ya hay una generación en curso. Espera a que termine.', { 
+            id: 'generate', 
+            duration: 3000 
+          });
+        } else {
+          toast.error(data.message || data.error || '❌ Error al generar borradores.', { 
+            id: 'generate', 
+            duration: 4000 
+          });
+        }
         
         // Resetear después de 2s
         setTimeout(() => {
@@ -269,6 +307,9 @@ export default function ColaTemas() {
       setTimeout(() => {
         selectedTopicIds.forEach(id => setGen(id, 'idle'));
       }, 2000);
+    } finally {
+      // SIEMPRE liberar el lock de generación
+      setIsGenerating(false);
     }
   };
 
@@ -423,21 +464,39 @@ export default function ColaTemas() {
           {/* Generate buttons */}
           <button
             onClick={() => handleGenerate('factual')}
-            disabled={selectedIds.size === 0 || isBulkBusy}
-            aria-label="Generar borradores factuales"
+            disabled={selectedIds.size === 0 || isBulkBusy || isGenerating}
+            aria-label={isGenerating ? "Generando..." : "Generar borradores factuales"}
             className="h-11 xl:h-12 min-w-[44px] lg:col-span-3 xl:col-span-2 flex items-center justify-center gap-2 px-4 lg:px-5 bg-blue-600 hover:bg-blue-700 disabled:bg-zinc-700 disabled:cursor-not-allowed rounded-xl font-medium transition-colors text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
-            <Zap size={16} />
-            <span>Factual</span>
+            {isGenerating ? (
+              <>
+                <RefreshCw size={16} className="animate-spin" />
+                <span className="hidden sm:inline">Generando...</span>
+              </>
+            ) : (
+              <>
+                <Zap size={16} />
+                <span>Factual</span>
+              </>
+            )}
           </button>
           <button
             onClick={() => handleGenerate('opinion')}
-            disabled={selectedIds.size === 0 || isBulkBusy}
-            aria-label="Generar borradores de opinión"
+            disabled={selectedIds.size === 0 || isBulkBusy || isGenerating}
+            aria-label={isGenerating ? "Generando..." : "Generar borradores de opinión"}
             className="h-11 xl:h-12 min-w-[44px] lg:col-span-3 xl:col-span-2 flex items-center justify-center gap-2 px-4 lg:px-5 bg-purple-600 hover:bg-purple-700 disabled:bg-zinc-700 disabled:cursor-not-allowed rounded-xl font-medium transition-colors text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
           >
-            <Zap size={16} />
-            <span>Opinión</span>
+            {isGenerating ? (
+              <>
+                <RefreshCw size={16} className="animate-spin" />
+                <span className="hidden sm:inline">Generando...</span>
+              </>
+            ) : (
+              <>
+                <Zap size={16} />
+                <span>Opinión</span>
+              </>
+            )}
           </button>
         </div>
 
