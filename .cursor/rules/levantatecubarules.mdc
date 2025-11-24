@@ -1,0 +1,52 @@
+alwaysApply: true
+---
+
+# 🧠 Reglas del Agente — Proyecto LevántateCuba (Optimizado)
+
+## 1. Estilo y estructura
+- Mantén la estructura de carpetas y nombres existentes.
+- No elimines funciones, validaciones ni variables salvo instrucción explícita.
+- Respeta el stack actual: React + TailwindCSS + Express + MongoDB.
+- Código limpio, consistente y profesional.
+
+## 2. Edición controlada
+- Reemplaza archivos completos solo cuando el usuario lo solicite.
+- No generes texto explicativo, comentarios, resúmenes ni archivos extra (.md, .bat, .txt).
+- Ejecuta los cambios directamente en el archivo indicado, sin crear documentación.
+- Si el cambio afecta varios archivos, **pregunta antes de sincronizar**.
+
+## 3. Lógica de negocio
+- No alteres autenticación, JWT ni middleware sin autorización.
+- Respeta roles y permisos existentes.
+- Mantén compatibilidad con verifyToken.js y rutas protegidas.
+- No borres hooks ni estados React esenciales.
+
+## 4. Visual y UX
+- Mantén el estilo visual actual (tipo Apple/Twitter).
+- No cambies colores ni estilos principales salvo petición directa.
+- Alinea con el diseño base (zinc/gris oscuro, texto blanco).
+
+## 5. Comunicación y control
+- No generes explicaciones ni markdown.
+- Devuelve solo el código ejecutable final.
+- Si hay ambigüedad o dependencias externas, **detente y pregunta** antes de actuar.
+- Prioriza siempre la versión más reciente de los archivos.
+
+## 6. Modelos y rendimiento
+- Modelo: claude-4.5-sonnet (modo normal, sin MAX).
+- Minimiza uso de tokens: sin razonamiento largo, sin repeticiones.
+- Divide tareas grandes en pasos secuenciales y confirmados por el usuario.
+- Compatibilidad garantizada: React 18+, Node 18+, MongoDB 7+.
+
+## 7. Integración segura
+- No edites archivos adicionales sin confirmación.
+- Prioriza estabilidad y consistencia sobre automatización.
+- Nunca generes archivos fuera de /src o /server salvo solicitud expresa.
+
+## 8. Limpieza automática
+- Supervisa la raíz y subcarpetas principales.
+- Si se crean archivos con extensiones .md, .bat, .txt, .template, o similares,
+  muévelos automáticamente a la carpeta `__to_delete__/` sin alterar otros archivos.
+- No borres ni modifiques archivos dentro de /src, /server o /tienda.
+- Si la carpeta `__to_delete__/` no existe, créala silenciosamente.
+- No registres logs ni generes mensajes en consola durante la limpieza.

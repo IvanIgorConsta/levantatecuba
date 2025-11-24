@@ -1,0 +1,92 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1235 650">
+  <!-- Bandera de Estados Unidos - Proporciones oficiales -->
+  
+  <!-- 13 franjas (7 rojas, 6 blancas) -->
+  <rect width="1235" height="50" y="0" fill="#B22234"/>
+  <rect width="1235" height="50" y="50" fill="#FFFFFF"/>
+  <rect width="1235" height="50" y="100" fill="#B22234"/>
+  <rect width="1235" height="50" y="150" fill="#FFFFFF"/>
+  <rect width="1235" height="50" y="200" fill="#B22234"/>
+  <rect width="1235" height="50" y="250" fill="#FFFFFF"/>
+  <rect width="1235" height="50" y="300" fill="#B22234"/>
+  <rect width="1235" height="50" y="350" fill="#FFFFFF"/>
+  <rect width="1235" height="50" y="400" fill="#B22234"/>
+  <rect width="1235" height="50" y="450" fill="#FFFFFF"/>
+  <rect width="1235" height="50" y="500" fill="#B22234"/>
+  <rect width="1235" height="50" y="550" fill="#FFFFFF"/>
+  <rect width="1235" height="50" y="600" fill="#B22234"/>
+  
+  <!-- Cantón azul -->
+  <rect width="494" height="350" fill="#3C3B6E"/>
+  
+  <!-- 50 estrellas blancas (simplificadas en patrón 6-5-6-5-6-5-6-5-6) -->
+  <!-- Fila 1: 6 estrellas -->
+  <g fill="#FFFFFF">
+    <circle cx="41" cy="29" r="12"/>
+    <circle cx="123" cy="29" r="12"/>
+    <circle cx="205" cy="29" r="12"/>
+    <circle cx="287" cy="29" r="12"/>
+    <circle cx="369" cy="29" r="12"/>
+    <circle cx="451" cy="29" r="12"/>
+    
+    <!-- Fila 2: 5 estrellas -->
+    <circle cx="82" cy="68" r="12"/>
+    <circle cx="164" cy="68" r="12"/>
+    <circle cx="246" cy="68" r="12"/>
+    <circle cx="328" cy="68" r="12"/>
+    <circle cx="410" cy="68" r="12"/>
+    
+    <!-- Fila 3: 6 estrellas -->
+    <circle cx="41" cy="107" r="12"/>
+    <circle cx="123" cy="107" r="12"/>
+    <circle cx="205" cy="107" r="12"/>
+    <circle cx="287" cy="107" r="12"/>
+    <circle cx="369" cy="107" r="12"/>
+    <circle cx="451" cy="107" r="12"/>
+    
+    <!-- Fila 4: 5 estrellas -->
+    <circle cx="82" cy="146" r="12"/>
+    <circle cx="164" cy="146" r="12"/>
+    <circle cx="246" cy="146" r="12"/>
+    <circle cx="328" cy="146" r="12"/>
+    <circle cx="410" cy="146" r="12"/>
+    
+    <!-- Fila 5: 6 estrellas -->
+    <circle cx="41" cy="185" r="12"/>
+    <circle cx="123" cy="185" r="12"/>
+    <circle cx="205" cy="185" r="12"/>
+    <circle cx="287" cy="185" r="12"/>
+    <circle cx="369" cy="185" r="12"/>
+    <circle cx="451" cy="185" r="12"/>
+    
+    <!-- Fila 6: 5 estrellas -->
+    <circle cx="82" cy="224" r="12"/>
+    <circle cx="164" cy="224" r="12"/>
+    <circle cx="246" cy="224" r="12"/>
+    <circle cx="328" cy="224" r="12"/>
+    <circle cx="410" cy="224" r="12"/>
+    
+    <!-- Fila 7: 6 estrellas -->
+    <circle cx="41" cy="263" r="12"/>
+    <circle cx="123" cy="263" r="12"/>
+    <circle cx="205" cy="263" r="12"/>
+    <circle cx="287" cy="263" r="12"/>
+    <circle cx="369" cy="263" r="12"/>
+    <circle cx="451" cy="263" r="12"/>
+    
+    <!-- Fila 8: 5 estrellas -->
+    <circle cx="82" cy="302" r="12"/>
+    <circle cx="164" cy="302" r="12"/>
+    <circle cx="246" cy="302" r="12"/>
+    <circle cx="328" cy="302" r="12"/>
+    <circle cx="410" cy="302" r="12"/>
+    
+    <!-- Fila 9: 6 estrellas -->
+    <circle cx="41" cy="341" r="12"/>
+    <circle cx="123" cy="341" r="12"/>
+    <circle cx="205" cy="341" r="12"/>
+    <circle cx="287" cy="341" r="12"/>
+    <circle cx="369" cy="341" r="12"/>
+    <circle cx="451" cy="341" r="12"/>
+  </g>
+</svg>

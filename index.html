@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" href="/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    
+    <!-- Script para deshabilitar zoom SOLO en móviles -->
+    <script>
+      // Detectar si es un dispositivo móvil
+      if (/Mobi|Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+        // Buscar y actualizar el viewport existente
+        const viewportMeta = document.querySelector('meta[name="viewport"]');
+        if (viewportMeta) {
+          viewportMeta.content = "width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no";
+        }
+      }
+    </script>
+    
+    <meta name="description" content="LevántateCuba - Plataforma de denuncia ciudadana en Cuba.">
+    <meta name="keywords" content="Cuba, Denuncia, Noticias, Dictadura, LevantateCuba, Activismo">
+    <meta name="author" content="LevantateCuba">
+    <meta property="og:title" content="LevántateCuba - La verdad sin censura" />
+    <meta property="og:description" content="Únete a la resistencia digital y denuncia los abusos del régimen." />
+    <meta property="og:image" content="https://titangrowthai.com/levantatecuba.jpg" />
+    <meta property="og:url" content="https://titangrowthai.com" />
+    <meta name="twitter:card" content="summary_large_image" />
+    
+<title>LevantateCuba</title>
+
+    <!-- ✅ Agrega esta línea para la fuente Montserrat -->
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet" />
+    
+    <!-- Diff2Html para visualización de diferencias (Redactor IA) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/diff2html/bundles/css/diff2html.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/diff2html/bundles/js/diff2html-ui.min.js"></script>
+    
+    <!-- Google AdSense -->
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-290558176853382"
+            crossorigin="anonymous"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

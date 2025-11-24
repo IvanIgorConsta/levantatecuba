@@ -1,0 +1,46 @@
+{
+  "title": "¡La verdad será libre!",
+  "quote": "Donde hay tiranía, la libertad tiene derecho a alzarse.",
+  "welcome": "Bienvenido a LevantateCuba, una plataforma para denunciar, informar y levantar la voz contra los abusos del régimen cubano.",
+  "cta": {
+    "question": "¿Tienes una historia que contar?",
+    "button": "Romper el silencio",
+    "alt": "O",
+    "subscribe": "Suscríbete para recibir actualizaciones"
+  },
+  "sections": {
+    "news": {
+      "title": "Noticias",
+      "text": "Reportes actualizados sobre la realidad cubana sin censura."
+    },
+    "reports": {
+      "title": "Denuncias",
+      "text": "Testimonios y evidencias directas del pueblo oprimido."
+    },
+    "videos": {
+      "title": "Videos",
+      "text": "Documentales, protestas y material gráfico que no se ve en la TV."
+    },
+    "podcast": {
+      "title": "Podcast",
+      "text": "Historias en audio, análisis y voces del exilio."
+    }
+  },
+  "gallery": {
+    "title": "Aquí comienza la verdad",
+    "quote": "Obligados al exilio... no hay abrazo que cierre lo que la dictadura parte."
+  },
+  "contact": "Contáctanos",
+  "footerCredits": "© 2025 LevantateCuba. Todos los derechos reservados.",
+  "aboutTitle": "Sobre mí",
+  "aboutContent": "Soy el creador de esta plataforma...",
+
+  "report_title": "Denuncia los abusos del régimen",
+  "name": "Tu nombre (opcional)",
+  "optional_name": "Ej: Juan Pérez o Anónimo",
+  "testimony": "Tu denuncia",
+  "testimony_placeholder": "Describe aquí lo que viviste o presenciaste...",
+  "upload": "Subir imagen o evidencia (opcional)",
+  "send": "Enviar denuncia",
+  "thanks": "¡Gracias por tu valentía! Tu denuncia ha sido recibida."
+}

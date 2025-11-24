@@ -1,0 +1,47 @@
+{
+  "title": "The truth shall be free!",
+  "quote": "Where there is tyranny, freedom has the right to rise.",
+  "welcome": "Welcome to LevantateCuba, a platform to report, inform, and raise your voice against the abuses of the Cuban regime.",
+  "cta": {
+    "question": "Do you have a story to tell?",
+    "button": "Break the silence",
+    "alt": "Or",
+    "subscribe": "Subscribe to receive updates"
+  },
+  "sections": {
+    "news": {
+      "title": "News",
+      "text": "Updated reports on Cuban reality without censorship."
+    },
+    "reports": {
+      "title": "Reports",
+      "text": "Testimonies and direct evidence from the oppressed people."
+    },
+    "videos": {
+      "title": "Videos",
+      "text": "Documentaries, protests, and visual material not shown on TV."
+    },
+    "podcast": {
+      "title": "Podcast",
+      "text": "Audio stories, analysis, and voices from exile."
+    }
+  },
+  "gallery": {
+    "title": "Here the truth begins",
+    "quote": "Forced into exile... there is no hug that can mend what the dictatorship breaks."
+  },
+  "contact": "Contact us",
+  "footerCredits": "© 2025 LevantateCuba. All rights reserved.",
+  "aboutTitle": "About me",
+  "aboutContent": "I am the creator of this platform...",
+
+  "report_title": "Report the abuses of the regime",
+  "name": "Your name (optional)",
+  "optional_name": "Ex: Juan Pérez or Anonymous",
+  "testimony": "Your testimony",
+  "testimony_placeholder": "Describe what you experienced or witnessed here...",
+  "upload": "Upload image or evidence (optional)",
+  "send": "Send report",
+  "thanks": "Thank you for your bravery! Your report has been received."
+}
+

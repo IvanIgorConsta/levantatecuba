@@ -1,0 +1,135 @@
+// server/redactor_ia/services/countryProfiles_europe.js
+module.exports = {
+  'España': {
+    code: 'ES', region: 'Europa Occidental',
+    city_style: 'Ciudades mediterráneas con plazas, arquitectura medieval y moderna',
+    architecture: 'Gótica, mudéjar, modernista catalana (Gaudí)',
+    climate: 'Mediterráneo seco y soleado',
+    people_style: 'Población europea mediterránea',
+    environment: 'Costas mediterráneas, meseta central, plazas',
+    colors: 'Ocre mediterráneo, azul cobalto, blanco cal',
+    flags_allowed: ['bandera española (rojo, amarillo, rojo)', 'banderas autonómicas'],
+    flags_forbidden: ['bandera francesa', 'bandera portuguesa'],
+    skyline_forbidden: ['París', 'Londres']
+  },
+  'Francia': {
+    code: 'FR', region: 'Europa Occidental',
+    city_style: 'Ciudades haussmanianas con arquitectura clásica',
+    architecture: 'Haussmann parisino, gótica, art nouveau',
+    climate: 'Templado oceánico',
+    people_style: 'Población europea diversa',
+    environment: 'Avenidas arboladas, plazas, arquitectura clásica',
+    colors: 'Gris parisino, azul prusiano, beige piedra',
+    flags_allowed: ['bandera francesa (azul, blanco, rojo vertical)'],
+    flags_forbidden: ['bandera rusa', 'bandera británica'],
+    skyline_forbidden: ['Londres', 'Berlín']
+  },
+  'Reino Unido': {
+    code: 'GB', region: 'Europa Occidental',
+    city_style: 'Ciudades británicas con arquitectura victoriana y georgiana',
+    architecture: 'Victoriana, georgiana, ladrillo rojo, contemporánea de vidrio',
+    climate: 'Templado oceánico, nublado, lluvioso',
+    people_style: 'Población europea diversa, multicultural urbana',
+    environment: 'Parques, arquitectura de ladrillo, Thames',
+    colors: 'Gris británico, rojo ladrillo, verde parque',
+    flags_allowed: ['bandera británica (Union Jack)'],
+    flags_forbidden: ['bandera francesa', 'bandera irlandesa'],
+    skyline_forbidden: ['París', 'Berlín']
+  },
+  'Alemania': {
+    code: 'DE', region: 'Europa Central',
+    city_style: 'Ciudades modernas reconstruidas post-guerra',
+    architecture: 'Contemporánea funcional, histórica reconstruida',
+    climate: 'Templado continental',
+    people_style: 'Población europea, multicultural urbana',
+    environment: 'Urbano moderno, parques, ríos',
+    colors: 'Gris cemento, verde urbano, vidrio azul',
+    flags_allowed: ['bandera alemana (negro, rojo, amarillo)'],
+    flags_forbidden: ['bandera austriaca', 'bandera belga'],
+    skyline_forbidden: ['Londres', 'París']
+  },
+  'Italia': {
+    code: 'IT', region: 'Europa Meridional',
+    city_style: 'Ciudades históricas con arquitectura romana, renacentista',
+    architecture: 'Romana antigua, renacentista, barroca',
+    climate: 'Mediterráneo cálido',
+    people_style: 'Población europea mediterránea',
+    environment: 'Plazas históricas, colinas, costas',
+    colors: 'Ocre romano, terracota, azul mediterráneo',
+    flags_allowed: ['bandera italiana (verde, blanco, rojo vertical)'],
+    flags_forbidden: ['bandera francesa', 'bandera mexicana'],
+    skyline_forbidden: ['París', 'Barcelona']
+  },
+  'Ucrania': {
+    code: 'UA', region: 'Europa Oriental',
+    city_style: 'Ciudades soviéticas con arquitectura histórica ortodoxa',
+    architecture: 'Ortodoxa ucraniana, soviética, contemporánea',
+    climate: 'Continental templado',
+    people_style: 'Población eslava',
+    environment: 'Stepas, ríos, arquitectura soviética',
+    colors: 'Amarillo dorado, azul celeste',
+    flags_allowed: ['bandera ucraniana (azul y amarillo)'],
+    flags_forbidden: ['bandera rusa'],
+    skyline_forbidden: ['Moscú', 'Varsovia']
+  },
+  'Rusia': {
+    code: 'RU', region: 'Europa Oriental',
+    city_style: 'Ciudades imperiales y soviéticas masivas',
+    architecture: 'Ortodoxa rusa, imperial, soviética monumental',
+    climate: 'Continental frío',
+    people_style: 'Población eslava',
+    environment: 'Urbano masivo, stepas, taiga',
+    colors: 'Rojo soviético, dorado ortodoxo, blanco nieve',
+    flags_allowed: ['bandera rusa (blanco, azul, rojo horizontal)'],
+    flags_forbidden: ['bandera ucraniana'],
+    skyline_forbidden: ['Kiev', 'Berlín']
+  },
+  'Polonia': {
+    code: 'PL', region: 'Europa Central',
+    city_style: 'Ciudades reconstruidas post-guerra',
+    architecture: 'Histórica reconstruida, soviética, contemporánea',
+    climate: 'Continental templado',
+    people_style: 'Población eslava',
+    environment: 'Urbano europeo, plazas, ríos',
+    colors: 'Rojo ladrillo, blanco histórico, gris urbano',
+    flags_allowed: ['bandera polaca (blanco y rojo horizontal)'],
+    flags_forbidden: ['bandera austriaca', 'bandera rusa'],
+    skyline_forbidden: ['Berlín', 'Moscú']
+  },
+  'Países Bajos': {
+    code: 'NL', region: 'Europa Occidental',
+    city_style: 'Ciudades con canales, arquitectura de ladrillos',
+    architecture: 'Ladrillo holandés, contemporánea innovadora',
+    climate: 'Oceánico templado',
+    people_style: 'Población europea',
+    environment: 'Canales, bicicletas, arquitectura baja',
+    colors: 'Ladrillo rojo, naranja, verde agua',
+    flags_allowed: ['bandera holandesa (rojo, blanco, azul horizontal)'],
+    flags_forbidden: ['bandera rusa', 'bandera francesa'],
+    skyline_forbidden: ['Bruselas', 'Hamburgo']
+  },
+  'Suecia': {
+    code: 'SE', region: 'Europa del Norte',
+    city_style: 'Ciudades escandinavas modernas y ordenadas',
+    architecture: 'Escandinava minimalista, contemporánea',
+    climate: 'Continental frío, nórdico',
+    people_style: 'Población escandinava',
+    environment: 'Urbano ordenado, bosques, lagos',
+    colors: 'Azul nórdico, amarillo sueco, gris minimalista',
+    flags_allowed: ['bandera sueca (azul y amarillo con cruz)'],
+    flags_forbidden: ['bandera noruega', 'bandera danesa'],
+    skyline_forbidden: ['Oslo', 'Copenhague']
+  },
+  'Noruega': {
+    code: 'NO', region: 'Europa del Norte',
+    city_style: 'Ciudades costeras escandinavas entre fiordos',
+    architecture: 'Escandinava de madera, contemporánea',
+    climate: 'Oceánico frío, nórdico',
+    people_style: 'Población escandinava',
+    environment: 'Fiordos, montañas, costas',
+    colors: 'Azul fiordo, rojo noruego, blanco nieve',
+    flags_allowed: ['bandera noruega (rojo, blanco, azul con cruz)'],
+    flags_forbidden: ['bandera sueca', 'bandera danesa'],
+    skyline_forbidden: ['Estocolmo', 'Copenhague']
+  }
+};

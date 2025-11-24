@@ -1,0 +1,29 @@
+{
+  "timestamp": "2025-09-01T09:59:52.179Z",
+  "config": {
+    "appIdStatus": "ERROR",
+    "appSecretStatus": "OK",
+    "graphVersionStatus": "OK",
+    "pageIdStatus": "OK",
+    "pageTokenStatus": "OK",
+    "loadStatus": "ERROR",
+    "status": "ERROR"
+  },
+  "token": {},
+  "permissions": {},
+  "pageAccess": {},
+  "publishTest": {},
+  "appMode": {},
+  "curlCommands": [],
+  "checklist": {},
+  "errors": [
+    "FACEBOOK_APP_ID incorrecto - falta un dígito",
+    "Config load error: CONFIG_ERROR: FACEBOOK_APP_ID incorrecto (783988867916816), debe ser 7839888679168616"
+  ],
+  "warnings": [],
+  "recommendations": [
+    "Rotar PAGE_TOKEN por seguridad",
+    "En producción, usar USER_TOKEN y resolver PAGE_TOKEN dinámicamente"
+  ],
+  "criticalError": "CONFIG_ERROR: FACEBOOK_APP_ID incorrecto (783988867916816), debe ser 7839888679168616"
+}

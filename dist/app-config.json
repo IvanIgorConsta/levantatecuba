@@ -1,0 +1,6 @@
+{
+  "STORE_MODE": "internal",
+  "STORE_URL": "",
+  "USE_SHOPIFY": true,
+  "SHOPIFY_API_BASE": "http://192.168.1.137:5000/api/shopify"
+}

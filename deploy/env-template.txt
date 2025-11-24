@@ -1,0 +1,147 @@
+# ============================================================================
+# VARIABLES DE ENTORNO - PRODUCCIÓN LEVANTATECUBA
+# Ubicación: /var/www/levantatecuba/.env
+# ============================================================================
+
+# ============================================================================
+# CONFIGURACIÓN GENERAL
+# ============================================================================
+NODE_ENV=production
+PORT=5000
+PUBLIC_ORIGIN=https://levantatecuba.com
+
+# ============================================================================
+# BASE DE DATOS - MONGODB ATLAS
+# ============================================================================
+# Formato: mongodb+srv://<username>:<password>@<cluster>.<randomstring>.mongodb.net/<database>
+MONGODB_URI=mongodb+srv://tu_usuario:tu_password@cluster0.xxxxx.mongodb.net/levantatecuba?retryWrites=true&w=majority
+
+# ============================================================================
+# AUTENTICACIÓN JWT
+# ============================================================================
+# IMPORTANTE: Generar un secreto seguro con: openssl rand -hex 64
+JWT_SECRET=tu_jwt_secret_super_seguro_de_64_caracteres_o_mas_generado_con_openssl
+
+# Duración del token (en segundos)
+JWT_EXPIRES_IN=86400  # 24 horas
+
+# ============================================================================
+# FACEBOOK API
+# ============================================================================
+FACEBOOK_APP_ID=783988867916816
+FACEBOOK_APP_SECRET=5075bc9bea6c6ed63bec38470fb20b83
+FACEBOOK_GRAPH_VERSION=v23.0
+FACEBOOK_PAGE_ID=724642430740421
+
+# IMPORTANTE: Obtener tu Page Access Token desde Facebook Developers
+# https://developers.facebook.com/tools/explorer/
+FACEBOOK_PAGE_TOKEN=tu_facebook_page_access_token_aqui
+
+# ============================================================================
+# OPENAI API
+# ============================================================================
+# Obtener desde: https://platform.openai.com/api-keys
+OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+OPENAI_IMAGE_MODEL=dall-e-3
+
+# ============================================================================
+# GOOGLE OAUTH
+# ============================================================================
+# Obtener desde: https://console.cloud.google.com/apis/credentials
+GOOGLE_CLIENT_ID=tu_google_client_id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=tu_google_client_secret
+GOOGLE_CALLBACK_URL=https://levantatecuba.com/api/oauth/google/callback
+
+# ============================================================================
+# CONFIGURACIÓN DE CORREO - HOSTINGER SMTP
+# ============================================================================
+EMAIL_HOST=smtp.hostinger.com
+EMAIL_PORT=465
+EMAIL_SECURE=true
+
+# IMPORTANTE: Crear cuenta noreply@levantatecuba.com en Hostinger Email
+# y generar contraseña de aplicación segura
+EMAIL_USER=noreply@levantatecuba.com
+EMAIL_PASS=tu_password_generado_desde_hostinger
+
+# Remitente para emails
+EMAIL_FROM="LevántateCuba <noreply@levantatecuba.com>"
+
+# URLs para emails (cambiar por tu dominio real)
+FRONTEND_URL=https://levantatecuba.com
+PASSWORD_RESET_URL=https://levantatecuba.com/reset-password
+
+# ============================================================================
+# CONFIGURACIÓN DE LÍMITES Y SEGURIDAD
+# ============================================================================
+# Límites de rate limiting
+RATE_LIMIT_WINDOW_MS=900000  # 15 minutos
+RATE_LIMIT_MAX_REQUESTS=100  # máximo 100 requests por ventana
+RATE_LIMIT_AUTH_MAX=5        # máximo 5 intentos de login por ventana
+
+# Tamaño máximo de archivos subidos (en bytes)
+MAX_FILE_SIZE=10485760  # 10MB
+
+# CORS Origins permitidos (separados por coma)
+CORS_ORIGINS=https://levantatecuba.com,https://www.levantatecuba.com
+
+# ============================================================================
+# CONFIGURACIÓN DE SESIONES
+# ============================================================================
+# Generar con: openssl rand -hex 32
+SESSION_SECRET=tu_session_secret_de_32_caracteres_hexadecimales
+
+# Duración de sesión (en milisegundos)
+SESSION_MAX_AGE=86400000  # 24 horas
+
+# ============================================================================
+# CONFIGURACIÓN DE LOGS
+# ============================================================================
+LOG_LEVEL=info  # error, warn, info, verbose, debug
+LOG_FILE=/var/log/levantatecuba/app.log
+
+# ============================================================================
+# CONFIGURACIÓN DE CACHE
+# ============================================================================
+# Tiempo de cache para contenido estático (en segundos)
+STATIC_CACHE_TIME=31536000  # 1 año
+
+# Tiempo de cache para API (en segundos)
+API_CACHE_TIME=300  # 5 minutos
+
+# ============================================================================
+# CONFIGURACIONES ADICIONALES
+# ============================================================================
+# Timezone
+TZ=America/Havana
+
+# Modo debug (false en producción)
+DEBUG=false
+
+# URL de webhook para notificaciones (opcional)
+# WEBHOOK_URL=https://hooks.slack.com/services/xxx/yyy/zzz
+
+# ============================================================================
+# VARIABLES ESPECÍFICAS DE PRODUCCIÓN
+# ============================================================================
+# Habilitar compresión GZIP
+ENABLE_COMPRESSION=true
+
+# Habilitar HTTPS redirect
+FORCE_HTTPS=true
+
+# Habilitar headers de seguridad
+SECURITY_HEADERS=true
+
+# Configuración de SSL
+SSL_REJECT_UNAUTHORIZED=true
+
+# ============================================================================
+# NOTAS IMPORTANTES:
+# ============================================================================
+# 1. NUNCA subir este archivo a git con valores reales
+# 2. Cambiar TODOS los valores de ejemplo por valores reales
+# 3. Usar contraseñas y secretos seguros generados aleatoriamente
+# 4. Verificar que las URLs coincidan con tu dominio real
+# 5. Crear la cuenta de email noreply@levantatecuba.com en Hostinger
+# 6. Obtener todos los tokens y API keys de sus respectivas plataformas

@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 500">
+  <!-- Bandera de Cuba - Proporciones oficiales 2:1 -->
+  
+  <!-- Franjas azules -->
+  <rect width="1000" height="100" y="0" fill="#002A8F"/>
+  <rect width="1000" height="100" y="200" fill="#002A8F"/>
+  <rect width="1000" height="100" y="400" fill="#002A8F"/>
+  
+  <!-- Franjas blancas -->
+  <rect width="1000" height="100" y="100" fill="#FFFFFF"/>
+  <rect width="1000" height="100" y="300" fill="#FFFFFF"/>
+  
+  <!-- Triángulo rojo -->
+  <polygon points="0,0 0,500 433,250" fill="#CB1515"/>
+  
+  <!-- Estrella blanca de 5 puntas -->
+  <g transform="translate(144.3, 250)">
+    <path d="M 0,-75 L 17.634,24.27 L -60.474,-32.7 L 60.474,-32.7 L -17.634,24.27 Z" 
+          fill="#FFFFFF" 
+          stroke="none"/>
+  </g>
+</svg>
