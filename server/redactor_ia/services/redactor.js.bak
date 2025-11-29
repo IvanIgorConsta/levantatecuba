@@ -9,7 +9,7 @@ const { classifyCategory } = require('./categoryClassifier');
 const { saveBase64Png } = require('./mediaStore');
 const { generateWithProvider } = require('./imageProvider');
 const { logCost, calculateLLMCost, calculateImageCost } = require('./statsService');
-const { buildSystemPrompt, buildEnhancedInput, validateContentQuality, validateStructure, strictValidateAndAutocorrect } = require('./promptBuilder');
+const { buildSystemPrompt, buildEnhancedInput, validateContentQuality } = require('./promptBuilder');
 const { deriveCategory } = require('../utils/categoryDeriver');
 const { ImageThemeEngine } = require('./imageThemeEngine');
 const { buildPrompt } = require('./promptTemplates');
@@ -24,18 +24,6 @@ const crypto = require('crypto');
 // Constantes de validación
 const MIN_CONTENT_LENGTH_FACTUAL = 3000; // Mínimo absoluto para FACTUAL
 const MIN_CONTENT_LENGTH_OPINION = 600;  // Mínimo para OPINIÓN
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// TIMEOUTS OPTIMIZADOS - Diferentes tiempos según complejidad de operación
-// ═══════════════════════════════════════════════════════════════════════════════
-const TIMEOUTS = {
-  INITIAL_GENERATION: 60000,  // 60s para generación inicial (prompts largos)
-  EXPAND_RETRY: 45000,        // 45s para expansión (prompt más ligero)
-  SIMPLE_TASK: 15000          // 15s para tareas simples
-};
-
-// Umbral mínimo de calidad para procesar un topic
-const MIN_TOPIC_QUALITY_SCORE = 40;
 
 // Control de concurrencia: Map por tenant para evitar generaciones simultáneas
 const generatingByTenant = new Map();
@@ -63,48 +51,10 @@ function isGPT(model) {
 }
 
 /**
- * Detecta si el modelo es GPT-4o-mini específicamente
- * Este modelo requiere parámetros más estrictos para respetar estructura
- * @param {string} model - Nombre del modelo
- * @returns {boolean}
- */
-function isGPT4oMini(model) {
-  if (!model || typeof model !== 'string') return false;
-  const m = model.toLowerCase();
-  return m.includes('gpt-4o-mini') || m === 'gpt-4o-mini';
-}
-
-/**
- * Obtiene la temperatura óptima según el modelo y modo
- * GPT-4o-mini requiere temperatura muy baja para respetar estructura
- * @param {string} model - Nombre del modelo
- * @param {string} mode - 'factual' o 'opinion'
- * @returns {number}
- */
-function getOptimalTemperature(model, mode) {
-  if (mode === 'opinion') {
-    return 0.7; // Opinión siempre más creativa
-  }
-  
-  // FACTUAL: GPT-4o-mini necesita temperatura muy baja
-  if (isGPT4oMini(model)) {
-    return 0.15; // Muy baja para que respete estructura estrictamente
-  }
-  
-  // Otros modelos OpenAI
-  if (isOpenAIModel(model)) {
-    return 0.2;
-  }
-  
-  // Claude y otros
-  return 0.2;
-}
-
-/**
  * Llama al LLM correcto según el modelo
  * @returns {Object} { text: string, usage: { prompt_tokens, completion_tokens, total_tokens } }
  */
-async function callLLM({ model, system, user, temperature = 0.3, timeoutMs = TIMEOUTS.INITIAL_GENERATION }) {
+async function callLLM({ model, system, user, temperature = 0.3, timeoutMs = 30000 }) {
   if (isOpenAIModel(model)) {
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, project: process.env.OPENAI_PROJECT_ID });
     
@@ -161,136 +111,22 @@ async function callLLM({ model, system, user, temperature = 0.3, timeoutMs = TIM
   };
 }
 
-/**
- * Retry inteligente con timeouts diferenciados y circuit breaker
- * @param {Function} fn - Función async a ejecutar
- * @param {Object} options - Opciones de retry
- * @returns {Promise} Resultado de la función
- */
-async function retryLLMCall(fn, timeoutMs = TIMEOUTS.INITIAL_GENERATION, maxRetries = 2) {
-  let lastError;
-  
+async function retryLLMCall(fn, timeoutMs = 30000, maxRetries = 2) {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error(`LLM timeout after ${timeoutMs}ms (attempt ${attempt})`)), timeoutMs)
+        setTimeout(() => reject(new Error('LLM timeout')), timeoutMs)
       );
       return await Promise.race([fn(), timeoutPromise]);
     } catch (error) {
-      lastError = error;
-      const isTimeout = error.message?.includes('timeout');
-      const isRateLimit = error.status === 429;
-      const isServerError = error.status >= 500 && error.status < 600;
-      
-      // No reintentar en timeout (ya consumió tiempo) a menos que sea el primer intento
-      if (isTimeout && attempt > 1) {
-        console.error(`[Redactor] ❌ Timeout en intento ${attempt}, abortando para evitar doble espera`);
-        throw error;
-      }
-      
-      // Solo reintentar en errores recuperables
-      const shouldRetry = isRateLimit || isServerError || (isTimeout && attempt === 1);
-      
-      if (!shouldRetry || attempt === maxRetries) {
-        throw error;
-      }
-      
-      const delay = isRateLimit ? 5000 : 2000 * Math.pow(2, attempt - 1);
-      console.log(`[Redactor] ⏳ Reintento ${attempt}/${maxRetries} en ${delay}ms (${error.message?.substring(0, 50)}...)`);
+      if (attempt === maxRetries) throw error;
+      const shouldRetry = error.status === 429 || (error.status >= 500 && error.status < 600);
+      if (!shouldRetry) throw error;
+      const delay = 2000 * Math.pow(2, attempt - 1);
+      console.log(`[Redactor] Reintento ${attempt}/${maxRetries} en ${delay}ms...`);
       await new Promise((r) => setTimeout(r, delay));
     }
   }
-  
-  throw lastError;
-}
-
-/**
- * Evalúa la calidad de un topic antes de procesarlo
- * Evita gastar tokens en topics de baja calidad
- * @param {Object} topic - Topic a evaluar
- * @returns {{ score: number, issues: string[], shouldSkip: boolean, reason: string }}
- */
-function assessTopicQuality(topic) {
-  const issues = [];
-  let score = 100;
-  
-  // 1. Verificar título
-  const titulo = topic.tituloSugerido || '';
-  if (!titulo || titulo.length < 15) {
-    issues.push('titulo_muy_corto');
-    score -= 25;
-  } else if (titulo.length < 30) {
-    issues.push('titulo_corto');
-    score -= 10;
-  }
-  
-  // 2. Verificar fuentes
-  const sources = topic.fuentesTop || [];
-  if (sources.length === 0) {
-    issues.push('sin_fuentes');
-    score -= 35;
-  } else if (sources.length === 1) {
-    issues.push('fuente_unica');
-    score -= 15;
-  }
-  
-  // 3. Verificar contenido disponible
-  const hasSnippet = sources.some(s => (s.snippet || '').length > 50);
-  const hasResumen = (topic.resumenBreve || '').length > 50;
-  
-  if (!hasSnippet && !hasResumen) {
-    issues.push('sin_contenido_base');
-    score -= 30;
-  }
-  
-  // 4. Verificar URLs válidas
-  const hasValidUrls = sources.some(s => s.url && s.url.startsWith('http'));
-  if (!hasValidUrls && sources.length > 0) {
-    issues.push('urls_invalidas');
-    score -= 10;
-  }
-  
-  // 5. Verificar impacto mínimo
-  if (topic.impacto && topic.impacto < 30) {
-    issues.push('impacto_muy_bajo');
-    score -= 15;
-  }
-  
-  return {
-    score: Math.max(0, score),
-    issues,
-    shouldSkip: score < MIN_TOPIC_QUALITY_SCORE,
-    reason: issues.length > 0 ? issues.join(', ') : 'ok'
-  };
-}
-
-/**
- * Construye un prompt ligero para expansión de contenido
- * Evita reenviar todo el input original
- * @param {string} existingContent - Contenido actual a expandir
- * @param {string} titulo - Título del artículo
- * @param {number} targetLength - Longitud objetivo
- * @returns {string} Prompt de expansión
- */
-function buildLightweightExpandPrompt(existingContent, titulo, targetLength = 3000) {
-  return `TAREA: Expandir artículo a mínimo ${targetLength} caracteres.
-
-TÍTULO: ${titulo}
-
-CONTENIDO ACTUAL (${existingContent.length} chars):
-${existingContent}
-
-INSTRUCCIONES:
-1. Mantén EXACTAMENTE la misma estructura de secciones (## headers)
-2. Añade 1-2 párrafos adicionales por sección
-3. Incluye contexto histórico o social verificable
-4. NO inventes datos, cifras o citas nuevas
-5. Amplía especialmente "Por qué es importante" y "Contexto del hecho"
-
-Responde SOLO con JSON:
-{
-  "contenidoMarkdown": "contenido expandido completo con todas las secciones"
-}`;
 }
 
 /**
@@ -428,18 +264,7 @@ async function generateDrafts(topicIds, user, mode = 'factual', formatStyle = 's
         topic.archivedAt = new Date();
         await topic.save();
       } catch (error) {
-        console.error(`[Redactor] Error generando borrador para ${topicId}:`, error.message);
-        
-        // Resetear topic a pending si falló (evitar que quede en "selected" para siempre)
-        try {
-          await AiTopic.findOneAndUpdate(
-            { idTema: topicId },
-            { status: 'pending', selectedBy: null, selectedAt: null }
-          );
-          console.log(`[Redactor] Topic ${topicId} reseteado a pending`);
-        } catch (resetError) {
-          console.error(`[Redactor] Error reseteando topic ${topicId}:`, resetError.message);
-        }
+        console.error(`[Redactor] Error generando borrador para ${topicId}:`, error);
       }
     }
 
@@ -522,57 +347,34 @@ function normalizeDraftPayload(topic, response, mode = 'factual') {
 async function generateSingleDraft(topic, user, mode, config, formatStyle = 'standard') {
   const startTime = Date.now();
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // PASO 0: Evaluar calidad del topic antes de gastar tokens
-  // ═══════════════════════════════════════════════════════════════════════════
-  const quality = assessTopicQuality(topic);
-  console.log(`[Redactor] 📊 Calidad del topic: score=${quality.score}, issues=[${quality.reason}]`);
-  
-  if (quality.shouldSkip) {
-    console.warn(`[Redactor] ⏭️ Topic de baja calidad (score=${quality.score}), saltando: ${quality.reason}`);
-    throw new Error(`Topic de baja calidad (score=${quality.score}): ${quality.reason}`);
-  }
-
   const inputs = buildClaudeInput(topic, mode, config, formatStyle);
 
   let rawResponse, response, norm;
   const modelUsed = config.aiModel || 'claude-3-5-sonnet-20240620';
-  let expandAttempted = false;
-  
-  // Objeto para acumular usage de todas las llamadas
-  let totalUsage = { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
+  let attemptCount = 0;
+  const maxAttempts = mode === 'factual' ? 2 : 1; // Permitir reintentos solo en FACTUAL
   
   try {
     // Usar sistema de prompts mejorado
     const systemPrompt = buildSystemPrompt(mode, formatStyle);
     
-    // Calcular temperatura óptima según modelo y modo
-    const optimalTemp = getOptimalTemperature(modelUsed, mode);
-    const isGPTMini = isGPT4oMini(modelUsed);
-    
-    console.log(`[Redactor] Generando borrador en modo ${mode.toUpperCase()} (timeout: ${TIMEOUTS.INITIAL_GENERATION}ms)...`);
-    console.log(`[Redactor] 🤖 Modelo: ${modelUsed} | Temperatura: ${optimalTemp} | GPT-4o-mini: ${isGPTMini ? 'SÍ (modo estricto)' : 'NO'}`);
-    
+    console.log(`[Redactor] Generando borrador en modo ${mode.toUpperCase()}...`);
     if (inputs.entitiesDetected?.people?.length > 0) {
       console.log(`[Redactor] Entidades detectadas: ${inputs.entitiesDetected.people.join(', ')}`);
     }
     
-    // ═══════════════════════════════════════════════════════════════════════════
-    // PASO 1: Generación inicial con timeout optimizado (60s)
-    // ═══════════════════════════════════════════════════════════════════════════
     const llmResult = await retryLLMCall(
       async () =>
         await callLLM({
           model: modelUsed,
           system: systemPrompt,
           user: JSON.stringify(inputs, null, 2),
-          temperature: optimalTemp, // ← Usar temperatura óptima según modelo
-          timeoutMs: TIMEOUTS.INITIAL_GENERATION
+          temperature: mode === 'factual' ? 0.2 : 0.7,
         }),
-      TIMEOUTS.INITIAL_GENERATION
+      30000
     );
     rawResponse = llmResult.text;
-    totalUsage = { ...llmResult.usage };
+    const usage = llmResult.usage;
     const isJsonMode = llmResult.isJsonMode || false;
     
     // Debug: Mostrar respuesta del LLM
@@ -583,72 +385,54 @@ async function generateSingleDraft(topic, user, mode, config, formatStyle = 'sta
     // Debug: Verificar campos en response
     console.log(`[Redactor] Campos en response: titulo=${!!response.titulo}, bajada=${!!response.bajada}, categoria=${!!response.categoria}, contenido=${response.contenidoMarkdown?.length || 0} chars`);
     
-    // PASO 2: Normalizar payload PRIMERO (deriva categoría automáticamente)
+    // PASO 1: Normalizar payload PRIMERO (deriva categoría automáticamente)
     norm = normalizeDraftPayload(topic, response, mode);
     
-    // ═══════════════════════════════════════════════════════════════════════════
-    // PASO 3: Expansión LIGERA si contenido muy corto (solo FACTUAL)
-    // Usa prompt reducido para evitar doble timeout
-    // ═══════════════════════════════════════════════════════════════════════════
-    if (mode === 'factual' && !expandAttempted) {
+    // PASO 2: Validar longitud y reintentar si es necesario (solo FACTUAL)
+    if (mode === 'factual' && attemptCount === 0) {
       const contentLength = norm.contenidoMarkdown.length;
       
       if (contentLength < MIN_CONTENT_LENGTH_FACTUAL) {
-        console.warn(`[Redactor] ⚠️ Contenido muy corto (${contentLength} chars). Intentando expansión ligera...`);
-        expandAttempted = true;
+        console.warn(`[Redactor] Contenido muy corto (${contentLength} chars). Reintentando con instrucción de ampliación...`);
+        attemptCount++;
         
-        try {
-          // Usar prompt LIGERO (solo contenido existente, no todo el input)
-          const expandPrompt = buildLightweightExpandPrompt(
-            norm.contenidoMarkdown,
-            norm.titulo,
-            MIN_CONTENT_LENGTH_FACTUAL
-          );
-          
-          // System prompt simplificado para expansión
-          const expandSystemPrompt = `Eres un editor de LevántateCuba. Tu tarea es EXPANDIR el contenido manteniendo la estructura existente. Responde SOLO con JSON válido.`;
-          
-          const expandedResult = await retryLLMCall(
-            async () =>
-              await callLLM({
-                model: modelUsed,
-                system: expandSystemPrompt,
-                user: expandPrompt,
-                temperature: 0.2,
-                timeoutMs: TIMEOUTS.EXPAND_RETRY // 45s para expansión
-              }),
-            TIMEOUTS.EXPAND_RETRY,
-            1 // Solo 1 intento para expansión (evitar doble timeout)
-          );
-          
-          const expandedIsJsonMode = expandedResult.isJsonMode || false;
-          
-          // Sumar tokens de la segunda llamada
-          totalUsage.prompt_tokens += expandedResult.usage.prompt_tokens;
-          totalUsage.completion_tokens += expandedResult.usage.completion_tokens;
-          totalUsage.total_tokens += expandedResult.usage.total_tokens;
-          
-          const expandedResponse = parseCleanJSON(expandedResult.text, true, expandedIsJsonMode);
-          
-          // Solo actualizar contenido si la expansión fue exitosa y más larga
-          if (expandedResponse.contenidoMarkdown && expandedResponse.contenidoMarkdown.length > contentLength) {
-            norm.contenidoMarkdown = expandedResponse.contenidoMarkdown;
-            console.log(`[Redactor] ✅ Contenido expandido: ${contentLength} → ${norm.contenidoMarkdown.length} chars`);
-          } else {
-            console.warn(`[Redactor] ⚠️ Expansión no mejoró el contenido, usando original`);
-          }
-        } catch (expandError) {
-          // Si la expansión falla, continuar con el contenido original
-          console.warn(`[Redactor] ⚠️ Expansión falló (${expandError.message}), usando contenido original (${contentLength} chars)`);
-          // No relanzar el error, continuar con contenido corto
-        }
+        // Reintentar con prompt de ampliación
+        const expandPrompt = `${JSON.stringify(inputs, null, 2)}
+
+IMPORTANTE: El contenido anterior fue demasiado corto (${contentLength} caracteres).
+Amplía el artículo a mínimo 3000 caracteres manteniendo:
+- Estructura completa (6 secciones)
+- Contexto histórico/social verificable
+- Datos y cifras de las fuentes
+- NO inventar información
+- Ampliar desarrollo y sección "Por qué es importante"`;
+        
+        const expandedResult = await retryLLMCall(
+          async () =>
+            await callLLM({
+              model: modelUsed,
+              system: systemPrompt,
+              user: expandPrompt,
+              temperature: 0.2,
+            }),
+          30000
+        );
+        
+        rawResponse = expandedResult.text;
+        const expandedIsJsonMode = expandedResult.isJsonMode || false;
+        // Sumar tokens de la segunda llamada
+        usage.prompt_tokens += expandedResult.usage.prompt_tokens;
+        usage.completion_tokens += expandedResult.usage.completion_tokens;
+        usage.total_tokens += expandedResult.usage.total_tokens;
+        
+        response = parseCleanJSON(rawResponse, true, expandedIsJsonMode);
+        norm = normalizeDraftPayload(topic, response, mode);
+        
+        console.log(`[Redactor] Contenido expandido: ${norm.contenidoMarkdown.length} chars`);
       }
     }
     
-    // Usar totalUsage para el resto del flujo
-    const usage = totalUsage;
-    
-    // PASO 4: Validar calidad DESPUÉS de normalizar y expandir
+    // PASO 3: Validar calidad DESPUÉS de normalizar y expandir
     // Reconstruir response con valores normalizados para la validación
     const normalizedResponse = {
       titulo: norm.titulo,
@@ -667,46 +451,6 @@ async function generateSingleDraft(topic, user, mode, config, formatStyle = 'sta
     
     if (validation.warnings.length > 0) {
       console.warn('[Redactor] Advertencias de calidad:', validation.warnings);
-    }
-    
-    // ═══════════════════════════════════════════════════════════════════════════
-    // PASO 5: Validar estructura obligatoria CON AUTOCORRECCIÓN (solo FACTUAL)
-    // GPT-4o-mini tiende a ignorar secciones, aquí forzamos cumplimiento
-    // ═══════════════════════════════════════════════════════════════════════════
-    if (mode === 'factual') {
-      const strictValidation = strictValidateAndAutocorrect(norm.contenidoMarkdown, {
-        model: modelUsed,
-        allowAutocorrect: true // Permitir autocorrección si faltan ≤2 secciones
-      });
-      
-      // Log detallado del resultado de validación
-      console.log(`[Redactor] 🔍 Validación estricta: valid=${strictValidation.valid}, corrected=${strictValidation.corrected}, shouldReject=${strictValidation.shouldReject}`);
-      
-      if (strictValidation.issues.length > 0) {
-        console.warn(`[Redactor] ⚠️ Issues de estructura: ${strictValidation.issues.join(' | ')}`);
-      }
-      
-      // RECHAZAR si la estructura es inaceptable (>2 secciones faltantes)
-      if (strictValidation.shouldReject) {
-        console.error(`[Redactor] ❌ BORRADOR RECHAZADO: ${strictValidation.rejectReason}`);
-        console.error(`[Redactor] Modelo: ${modelUsed} | Topic: ${topic.idTema}`);
-        throw new Error(`Estructura inválida (FACTUAL): ${strictValidation.rejectReason}`);
-      }
-      
-      // Aplicar contenido corregido si hubo autocorrección
-      if (strictValidation.corrected && strictValidation.correctedContent) {
-        console.log(`[Redactor] 🔧 Autocorrección aplicada. Secciones añadidas: ${strictValidation.missingSections.join(', ')}`);
-        norm.contenidoMarkdown = strictValidation.correctedContent;
-      }
-    } else {
-      // Para OPINIÓN, solo validación suave (legacy)
-      const structureValidation = validateStructure(norm.contenidoMarkdown, mode);
-      if (!structureValidation.valid) {
-        console.warn(`[Redactor] ⚠️ Estructura incompleta (OPINIÓN): [${structureValidation.missingSections.join(', ')}]`);
-      }
-      if (structureValidation.warnings.length > 0) {
-        console.warn(`[Redactor] Advertencias de estructura: ${structureValidation.warnings.join(', ')}`);
-      }
     }
     
     // Calcular y registrar costo del LLM con tokens reales

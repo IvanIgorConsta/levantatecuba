@@ -1,20 +1,14 @@
 // server/redactor_ia/services/urlDraftGenerator.js
 const { marked } = require('marked');
 const { extractArticleContent } = require('./urlExtractor');
-const { buildSystemPrompt, getStructureInstructionsForUserPrompt, validateStructure } = require('./promptBuilder');
+const { buildSystemPrompt } = require('./promptBuilder');
 const { deriveCategory } = require('../utils/categoryDeriver');
 const AiConfig = require('../../models/AiConfig');
-
-// Timeouts optimizados (sincronizados con redactor.js)
-const TIMEOUTS = {
-  GENERATION: 60000,  // 60s para generación
-  SIMPLE: 15000       // 15s para tareas simples
-};
 
 /**
  * Llama al LLM correcto según el modelo (copia de redactor.js para evitar dependencia circular)
  */
-async function callLLM({ model, system, user, temperature = 0.3, timeoutMs = TIMEOUTS.GENERATION }) {
+async function callLLM({ model, system, user, temperature = 0.3, timeoutMs = 30000 }) {
   const Anthropic = require('@anthropic-ai/sdk');
   const OpenAI = require('openai');
   
@@ -111,12 +105,11 @@ async function generateDraftFromUrl(url) {
   // 4. Construir prompt del sistema
   const systemPrompt = buildSystemPrompt('factual', 'standard');
   
-  // 5. Construir prompt del usuario con estructura obligatoria
-  const structureInstructions = getStructureInstructionsForUserPrompt('factual');
-  
+  // 5. Construir prompt del usuario
   const userPrompt = `
-Eres un redactor profesional de LevántateCuba. A continuación recibes el contenido extraído de un artículo web.
-Tu tarea es REESCRIBIR este contenido como una noticia original con ESTRUCTURA PROFESIONAL.
+Eres un redactor profesional. A continuación recibes el contenido extraído de un artículo web.
+Tu tarea es REESCRIBIR este contenido como una noticia original, adaptando el lenguaje y estructura 
+para LevántateCuba, manteniendo los hechos esenciales.
 
 CONTENIDO ORIGINAL:
 Título: ${article.title}
@@ -126,26 +119,23 @@ Resumen: ${article.excerpt}
 Texto completo:
 ${article.content.substring(0, 8000)}
 
-${structureInstructions}
-
-FORMATO DE RESPUESTA (JSON OBLIGATORIO):
+FORMATO DE RESPUESTA (JSON):
 {
-  "titulo": "Título reescrito, SEO optimizado (60-70 chars)",
-  "bajada": "Lead/resumen que responda qué/dónde/quién (2-3 oraciones)",
-  "categoria": "UNA de: General, Política, Economía, Internacional, Tecnología, Tendencia, Socio político",
-  "contenidoMarkdown": "## Contexto del hecho\\n\\n[contenido]\\n\\n## Causa y consecuencia\\n\\n[contenido]\\n\\n## Citas verificables\\n\\n[contenido]\\n\\n## Por qué es importante\\n\\n[contenido]\\n\\n## Datos importantes\\n\\n[contenido]\\n\\n## Cierre\\n\\n[contenido]",
-  "etiquetas": ["tag1", "tag2", "tag3", "tag4"],
+  "titulo": "Título reescrito (máx 80 chars)",
+  "bajada": "Lead/resumen del artículo (2-3 oraciones)",
+  "categoria": "Categoría apropiada (General, Política, Economía, Internacional, Tecnología, Tendencia)",
+  "contenidoMarkdown": "# Sección 1\\n\\nPárrafo...\\n\\n## Subsección\\n\\nMás contenido...",
+  "etiquetas": ["tag1", "tag2", "tag3"],
   "verifications": []
 }
 
 INSTRUCCIONES CRÍTICAS:
-1. El contenidoMarkdown DEBE tener mínimo 3000 caracteres
-2. DEBE incluir TODAS las secciones obligatorias con los títulos EXACTOS mostrados arriba
-3. NO generes un bloque de texto sin secciones - SIEMPRE usa los encabezados ##
-4. NO copies textualmente, reescribe con tus propias palabras
-5. Mantén un tono profesional y objetivo
-6. Si no hay citas disponibles, escribe "No se dispone de declaraciones oficiales al momento."
-7. Si no hay datos numéricos relevantes, OMITE la sección "Datos importantes"
+1. El contenidoMarkdown debe tener mínimo 3000 caracteres
+2. Usa formato Markdown con encabezados (##), negritas (**texto**), listas, etc.
+3. NO copies textualmente, reescribe con tus propias palabras
+4. Mantén un tono profesional y objetivo
+5. La categoría debe ser una de las opciones listadas
+6. Las etiquetas deben ser relevantes al tema principal
 
 Responde SOLO con el JSON, sin explicaciones adicionales.
 `;
@@ -194,16 +184,6 @@ Responde SOLO con el JSON, sin explicaciones adicionales.
   
   if (contenidoMarkdown.length < 500) {
     throw new Error('El contenido generado es demasiado corto');
-  }
-  
-  // Validar estructura obligatoria
-  const structureValidation = validateStructure(contenidoMarkdown, 'factual');
-  if (!structureValidation.valid) {
-    console.warn(`[URLDraftGenerator] ⚠️ Estructura incompleta: faltan secciones [${structureValidation.missingSections.join(', ')}]`);
-    // No lanzar error, pero loguear para monitoreo
-  }
-  if (structureValidation.warnings.length > 0) {
-    console.warn(`[URLDraftGenerator] Advertencias de estructura: ${structureValidation.warnings.join(', ')}`);
   }
   
   // 9. Convertir Markdown a HTML
