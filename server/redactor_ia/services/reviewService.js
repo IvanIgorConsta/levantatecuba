@@ -10,12 +10,6 @@ const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY,
 });
 
-// Timeouts optimizados (sincronizados con redactor.js)
-const TIMEOUTS = {
-  REVIEW: 45000,  // 45s para revisiones (prompts más cortos que generación)
-  SIMPLE: 15000   // 15s para tareas simples
-};
-
 function isGPT(model) {
   return typeof model === 'string' && model.startsWith('gpt-');
 }
@@ -23,7 +17,7 @@ function isGPT(model) {
 /**
  * Llama al LLM correcto según el modelo
  */
-async function callLLM({ model, system, user, temperature = 0.3, timeoutMs = TIMEOUTS.REVIEW }) {
+async function callLLM({ model, system, user, temperature = 0.3, timeoutMs = 30000 }) {
   if (isGPT(model)) {
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, project: process.env.OPENAI_PROJECT_ID });
     
@@ -213,39 +207,25 @@ async function generateRevision({ draftId, notes, model, userId }) {
 }
 
 /**
- * Retry helper con timeouts optimizados
+ * Retry helper
  */
-async function retryLLMCall(fn, timeoutMs = TIMEOUTS.REVIEW, maxRetries = 2) {
-  let lastError;
-  
+async function retryLLMCall(fn, timeoutMs = 30000, maxRetries = 2) {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error(`Review LLM timeout after ${timeoutMs}ms`)), timeoutMs)
+        setTimeout(() => reject(new Error('LLM timeout')), timeoutMs)
       );
       return await Promise.race([fn(), timeoutPromise]);
     } catch (error) {
-      lastError = error;
-      const isTimeout = error.message?.includes('timeout');
-      const isRateLimit = error.status === 429;
-      const isServerError = error.status >= 500 && error.status < 600;
+      if (attempt === maxRetries) throw error;
+      const shouldRetry = error.status === 429 || (error.status >= 500 && error.status < 600);
+      if (!shouldRetry) throw error;
       
-      // No reintentar en timeout después del primer intento
-      if (isTimeout && attempt > 1) {
-        console.error(`[Review] ❌ Timeout en intento ${attempt}, abortando`);
-        throw error;
-      }
-      
-      const shouldRetry = isRateLimit || isServerError || (isTimeout && attempt === 1);
-      if (!shouldRetry || attempt === maxRetries) throw error;
-      
-      const delay = isRateLimit ? 5000 : Math.min(2000 * Math.pow(2, attempt - 1), 8000);
-      console.log(`[Review] ⏳ Retry ${attempt}/${maxRetries} after ${delay}ms...`);
+      const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000);
+      console.log(`[Review] Retry ${attempt}/${maxRetries} after ${delay}ms...`);
       await new Promise(resolve => setTimeout(resolve, delay));
     }
   }
-  
-  throw lastError;
 }
 
 /**

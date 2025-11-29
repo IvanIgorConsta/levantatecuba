@@ -4,7 +4,6 @@ const https = require('https');
 const AiConfig = require('../../models/AiConfig');
 const AiTopic = require('../../models/AiTopic');
 const { logScan } = require('./statsService');
-const { deduplicateByTitle } = require('../utils/similarity');
 
 // Keep-alive agent para reutilizar conexiones
 const httpsAgent = new https.Agent({
@@ -361,20 +360,9 @@ async function scanCubaStrict({ limit = 20, hoursWindow = 48 }) {
       ...martiArticles
     ];
     
-    console.log(`[CubaEstricto] 📊 Artículos combinados (antes de dedupe): ${allArticles.length}`);
+    console.log(`[CubaEstricto] 📊 Artículos combinados: ${allArticles.length}`);
     
-    // DEDUPE: Eliminar artículos duplicados por similitud de título
-    const { unique: dedupedArticles, duplicatesSkipped } = deduplicateByTitle(allArticles, {
-      titleField: 'title',
-      impactField: 'impacto',
-      verbose: true
-    });
-    
-    if (duplicatesSkipped > 0) {
-      console.log(`[CubaEstricto] 🔍 Deduplicación: ${duplicatesSkipped} duplicados eliminados, ${dedupedArticles.length} artículos únicos`);
-    }
-    
-    if (dedupedArticles.length === 0) {
+    if (allArticles.length === 0) {
       console.log('[CubaEstricto] ⚠️  No se encontraron artículos recientes');
       console.timeEnd('[CubaEstricto] ⏱️  Tiempo total de escaneo');
       
@@ -392,10 +380,10 @@ async function scanCubaStrict({ limit = 20, hoursWindow = 48 }) {
     }
     
     // Ordenar por publishedAt descendente (más reciente primero)
-    dedupedArticles.sort((a, b) => b.publishedAt - a.publishedAt);
+    allArticles.sort((a, b) => b.publishedAt - a.publishedAt);
     
     // Recortar al límite
-    const topArticles = dedupedArticles.slice(0, limit);
+    const topArticles = allArticles.slice(0, limit);
     
     // Normalizar a formato de tema
     const topics = normalizeToTopics(topArticles, tenantId);

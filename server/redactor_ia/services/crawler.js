@@ -16,7 +16,6 @@ const {
   hostOf,
   canonicalUrl
 } = require('../config/freshness');
-const { deduplicateByTitle } = require('../utils/similarity');
 
 // Control de concurrencia: Map por tenant para evitar escaneos simultáneos
 const scanningByTenant = new Map();
@@ -364,7 +363,7 @@ async function scanSources() {
     
     // 5.1 Deduplicar por URL canónica
     const seenUrls = new Set();
-    const urlDedupedArticles = filteredArticles.filter(article => {
+    const dedupedArticles = filteredArticles.filter(article => {
       const canonical = canonicalUrl(article.url || article.link || '');
       if (!canonical || seenUrls.has(canonical)) {
         return false;
@@ -372,17 +371,6 @@ async function scanSources() {
       seenUrls.add(canonical);
       return true;
     });
-    
-    // 5.1b Deduplicar por similitud de título (cosine, levenshtein, jaccard)
-    const { unique: dedupedArticles, duplicatesSkipped: titleDupesSkipped } = deduplicateByTitle(urlDedupedArticles, {
-      titleField: 'title',
-      impactField: 'impacto',
-      verbose: true
-    });
-    
-    if (titleDupesSkipped > 0) {
-      console.log(`[Crawler] 🔍 Deduplicación por título: ${titleDupesSkipped} duplicados eliminados`);
-    }
     
     // 5.2 Freshness gate: Solo artículos dentro de la ventana temporal
     const now = Date.now();
@@ -426,9 +414,7 @@ async function scanSources() {
       windowHours,
       perSourceCap,
       totalIn: filteredArticles.length,
-      afterUrlDedup: urlDedupedArticles.length,
-      afterTitleDedup: dedupedArticles.length,
-      titleDupesRemoved: titleDupesSkipped,
+      afterDedup: dedupedArticles.length,
       afterWindow: freshArticles.length,
       afterCap: cappedArticles.length
     });
