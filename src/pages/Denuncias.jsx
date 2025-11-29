@@ -17,10 +17,11 @@ import {
   ChevronDown,
   ChevronUp,
   Eye,
-  X
+  X,
+  Megaphone
 } from "lucide-react";
 import { FaWhatsapp, FaTwitter, FaFacebook, FaLink } from "react-icons/fa";
-import BackLink from "../components/BackLink";
+import PageHeader from "../components/PageHeader";
 
 export default function Denuncias() {
   const { t } = useTranslation();
@@ -592,29 +593,26 @@ export default function Denuncias() {
   }
 
   return (
-    <main className="min-h-screen bg-transparent py-8 px-4">
-      <div className="max-w-3xl mx-auto">
-        <BackLink to="/" label="Volver al inicio" />
-        
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6 mt-4">
-          <div>
-            <h1 className="text-2xl font-bold text-white">
-              Denuncias Ciudadanas
-            </h1>
-            <p className="text-sm text-zinc-500 mt-1">
-              Voces que exigen justicia y cambio
-            </p>
-          </div>
-          
-          <a
-            href={isLoggedIn ? "/romper" : "/login?redirect=/romper"}
-            className="flex items-center gap-2 px-4 py-2 bg-red-500 hover:bg-red-600 text-white font-medium rounded-lg transition"
-          >
-            <TrendingUp className="w-4 h-4" />
-            Hacer denuncia
-          </a>
-        </div>
+    <main className="min-h-screen bg-transparent">
+      {/* Cabecera unificada */}
+      <PageHeader
+        breadcrumb={[
+          { label: 'Inicio', href: '/' },
+          { label: 'Denuncias' }
+        ]}
+        icon={Megaphone}
+        title="Denuncias"
+        titleHighlight="Ciudadanas"
+        subtitle="Voces que exigen justicia y cambio. Aquí cada historia cuenta."
+        bannerEmoji="✊"
+        bannerTitle="Tu voz importa"
+        bannerText="Haz tu denuncia de forma segura y anónima si lo deseas."
+        ctaLabel="Hacer denuncia"
+        ctaHref={isLoggedIn ? "/romper" : "/login?redirect=/romper"}
+        ctaIcon={TrendingUp}
+      />
+
+      <div className="max-w-6xl mx-auto px-4 md:px-6">
 
         {/* Stats bar */}
         {denuncias.length > 0 && (

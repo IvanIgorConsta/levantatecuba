@@ -1,10 +1,9 @@
 // src/pages/Tienda.jsx
 import { useEffect, useState } from 'react';
-import { ShoppingBag, Loader2, ExternalLink, Filter, ChevronRight } from 'lucide-react';
+import { ShoppingBag, Loader2, ExternalLink, Filter, ChevronRight, ArrowLeft, Newspaper } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { listShopifyProducts } from '../lib/shopifyClient';
 import { RUNTIME_CONFIG, isExternalStore } from '../lib/runtimeConfig';
-import BackButton from '../components/BackButton';
 
 export default function Tienda() {
   const [products, setProducts] = useState([]);
@@ -125,24 +124,62 @@ export default function Tienda() {
 
   // Mostrar tienda con productos (o estado vacío)
   return (
-    <div className="min-h-screen bg-zinc-950 text-white">
-      <div className="bg-zinc-900 border-b border-zinc-800 py-12">
-        <div className="container mx-auto px-4">
-          {/* Botón volver */}
-          <div className="mb-4">
-            <BackButton label="Volver" fallbackTo="/" />
-          </div>
-          
-          <h1 className="text-4xl font-bold text-white mb-2">
-            Tienda Oficial
-          </h1>
-          <p className="text-zinc-400">
-            Apoya la causa con nuestro merchandising exclusivo
-          </p>
+    <div className="min-h-screen bg-transparent text-white">
+      {/* Header moderno - mismo diseño que Noticias */}
+      <header className="max-w-6xl mx-auto px-4 md:px-6 pt-[calc(var(--nav-h,64px)+12px)] mb-4 md:mb-6">
+        {/* Botón Volver (solo móvil) */}
+        <div className="flex sm:hidden items-center justify-between mb-3">
+          <Link
+            to="/"
+            className="inline-flex items-center gap-2 rounded-xl border border-zinc-800 bg-zinc-900/70 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-900 transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" aria-hidden="true" />
+            Volver al inicio
+          </Link>
         </div>
-      </div>
 
-      <div className="container mx-auto px-4 py-8">
+        {/* Breadcrumb simple (solo desktop) */}
+        <nav aria-label="Breadcrumb" className="hidden md:flex items-center gap-2 text-sm text-zinc-400 mb-2">
+          <Link to="/" className="hover:text-zinc-300 transition-colors">Inicio</Link>
+          <ChevronRight className="w-4 h-4" aria-hidden="true" />
+          <span className="text-zinc-300">Tienda</span>
+        </nav>
+
+        {/* Title row */}
+        <div className="flex items-center gap-3">
+          {/* Ícono moderno */}
+          <span className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-zinc-900/70 border border-zinc-800/60">
+            <ShoppingBag className="w-5 h-5 text-zinc-300" strokeWidth={1.5} aria-hidden="true" />
+          </span>
+
+          <h1 className="text-2xl md:text-3xl font-semibold tracking-tight text-zinc-100">
+            Tienda <span className="text-zinc-400">Oficial</span>
+          </h1>
+        </div>
+      </header>
+
+      <div className="max-w-6xl mx-auto px-4 md:px-6">
+        {/* Banner de apoyo */}
+        <div className="mb-8 rounded-xl border border-zinc-800 bg-gradient-to-r from-zinc-900/80 to-zinc-900/60 backdrop-blur-sm p-4 md:p-5">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <p className="text-white font-semibold mb-1">
+                🛒 Apoya la causa
+              </p>
+              <p className="text-zinc-400 text-sm">
+                Cada compra ayuda a sostener esta plataforma independiente.
+              </p>
+            </div>
+            <Link
+              to="/noticias"
+              className="inline-flex items-center justify-center rounded-lg bg-red-600 hover:bg-red-700 px-6 py-2.5 text-white font-semibold transition-all duration-200 shadow-lg hover:shadow-red-600/20 whitespace-nowrap"
+            >
+              <Newspaper className="w-4 h-4 mr-2" />
+              Ver noticias
+            </Link>
+          </div>
+        </div>
+
         {/* Filtros de categoría */}
         {products.length > 0 && (
           <div className="mb-8">

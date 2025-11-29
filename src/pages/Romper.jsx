@@ -18,10 +18,12 @@ import {
   Eye,
   EyeOff,
   Plus,
-  Paperclip
+  Paperclip,
+  Megaphone,
+  ListChecks
 } from "lucide-react";
 import { FaPaperPlane } from "react-icons/fa";
-import BackLink from "../components/BackLink";
+import PageHeader from "../components/PageHeader";
 
 export default function Romper() {
   const { t } = useTranslation();
@@ -238,19 +240,27 @@ export default function Romper() {
   }
 
   return (
-    <main className="min-h-screen bg-transparent px-4 py-10 md:px-8">
-      <div className="mx-auto max-w-3xl">
-        <BackLink to="/" label="Volver al inicio" />
-        
-        {/* Header */}
-        <header className="mb-8 text-center">
-          <h1 className="mt-3 bg-gradient-to-r from-red-500 via-red-400 to-rose-400 bg-clip-text text-3xl font-extrabold text-transparent md:text-4xl">
-            Haz tu denuncia ciudadana
-          </h1>
-          <p className="mx-auto mt-3 max-w-2xl text-sm text-zinc-400">
-            Tu voz importa. Reporta situaciones irregulares de forma segura y anónima si lo deseas.
-          </p>
-        </header>
+    <main className="min-h-screen bg-transparent">
+      {/* Cabecera unificada */}
+      <PageHeader
+        breadcrumb={[
+          { label: 'Inicio', href: '/' },
+          { label: 'Denuncias', href: '/denuncias' },
+          { label: 'Nueva denuncia' }
+        ]}
+        icon={Megaphone}
+        title="Haz tu denuncia"
+        titleHighlight="ciudadana"
+        subtitle="Tu voz importa. Reporta situaciones irregulares de forma segura y anónima si lo deseas."
+        bannerEmoji="📝"
+        bannerTitle="Ver todas las denuncias"
+        bannerText="Explora las denuncias publicadas por otros ciudadanos."
+        ctaLabel="Ver denuncias"
+        ctaHref="/denuncias"
+        ctaIcon={ListChecks}
+      />
+
+      <div className="max-w-6xl mx-auto px-4 md:px-6 pb-10">
 
         {/* Formulario con diseño moderno */}
         <section className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-6 md:p-8 shadow-xl">

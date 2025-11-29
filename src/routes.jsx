@@ -20,6 +20,7 @@ const Denuncias = lazy(() => import("./pages/Denuncias"));
 const Noticias = lazy(() => import("./pages/Noticias"));
 const NoticiaDetalle = lazy(() => import("./pages/NoticiaDetalle"));
 const Romper = lazy(() => import("./pages/Romper"));
+const PuenteLibre = lazy(() => import("./pages/PuenteLibre"));
 const Contacto = lazy(() => import("./pages/Contacto"));
 const Donar = lazy(() => import("./pages/Donar"));
 const DonateSuccess = lazy(() => import("./pages/DonateSuccess"));
@@ -88,6 +89,7 @@ export default function AppRoutes() {
         <Route path="/noticias" element={<Noticias />} />
         <Route path="/noticias/:id" element={<NoticiaDetalle />} />
         <Route path="/romper" element={<Romper />} />
+        <Route path="/puente-libre" element={<PuenteLibre />} />
         
         {/* Rutas 410 - Contenido retirado permanentemente */}
         <Route 
