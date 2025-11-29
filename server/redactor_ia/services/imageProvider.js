@@ -1462,7 +1462,7 @@ async function providerDallECustom({ prompt, model = 'dall-e-3', draftId = null,
   console.log(`${logPrefix} 🎨 Generando con prompt MANUAL del usuario`);
   console.log(`${logPrefix} Modelo: ${model}`);
   
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, project: process.env.OPENAI_PROJECT_ID });
   
   // Validación mínima de modelo
   const validModels = ['dall-e-3', 'dall-e-2'];
@@ -1551,7 +1551,7 @@ async function providerDallECustom({ prompt, model = 'dall-e-3', draftId = null,
  * @returns {Promise<{ok: boolean, b64?: string, url?: string, provider: string}>}
  */
 async function providerDallE({ prompt, title, summary, category, model = 'dall-e-3', draftId = null, sourceImage = null, topic = null, tags = [], sources = [], draft = null, _imageContext = null }) {
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, project: process.env.OPENAI_PROJECT_ID });
   
   // VALIDACIÓN DE MODELO: Solo aceptar modelos válidos de OpenAI
   const validModels = ['dall-e-3', 'dall-e-2'];

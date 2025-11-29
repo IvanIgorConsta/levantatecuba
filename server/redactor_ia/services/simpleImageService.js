@@ -79,7 +79,7 @@ function buildSimplePrompt(draft) {
  * @returns {Promise<{ok: boolean, buffer?: Buffer, error?: string, errorCode?: string}>}
  */
 async function invokeDalleProvider(prompt, model = 'dall-e-3', fallbackOptions = {}) {
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, project: process.env.OPENAI_PROJECT_ID });
   const { sanitizeImagePrompt, getSymbolicFallbackPrompt, getGenericFallbackPrompt } = require('../utils/sanitizeImagePrompt');
   
   const locale = fallbackOptions.locale || 'es-CU';

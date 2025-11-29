@@ -97,27 +97,42 @@ app.use(compression({
 const { initializePassport } = require("./config/passport");
 initializePassport();
 
-// 5) CORS con configuración flexible desde variables de entorno
-// Leer PUBLIC_ORIGIN y DEV_ORIGINS desde .env
+// 5) CORS con configuración limpia (dominio + IP + dev)
 const publicOrigin = process.env.PUBLIC_ORIGIN || 'https://levantatecuba.com';
 const devOriginsEnv = process.env.DEV_ORIGINS || '';
-const devOriginsList = devOriginsEnv
+const extraOrigins = devOriginsEnv
   .split(',')
   .map(origin => origin.trim())
   .filter(Boolean);
 
-// Construir array con orígenes válidos según el entorno
-let allowedOrigins = [];
-if (process.env.NODE_ENV === 'production') {
-  // En producción: solo PUBLIC_ORIGIN
-  allowedOrigins = [publicOrigin];
-} else {
-  // En desarrollo: PUBLIC_ORIGIN + todos los DEV_ORIGINS
-  allowedOrigins = [publicOrigin, ...devOriginsList];
-}
+// Lista base de orígenes permitidos
+const baseOrigins = [
+  // Dominio principal (por si algún día cambia PUBLIC_ORIGIN)
+  publicOrigin,
 
-// Crear Set para mejor rendimiento en lookups
-const allowList = new Set(allowedOrigins.filter(Boolean));
+  // Dominio LevántateCuba explícito
+  'https://levantatecuba.com',
+  'http://levantatecuba.com',
+
+  // IP pública del servidor (tu acceso directo)
+  'http://72.61.64.1',
+  'https://72.61.64.1',
+
+  // Desarrollo local
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'http://localhost:4173',
+  'http://127.0.0.1:4173',
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+  'http://localhost:5000',
+  'http://127.0.0.1:5000',
+];
+
+// Crear Set final de orígenes permitidos
+const allowList = new Set(
+  [...baseOrigins, ...extraOrigins].filter(Boolean)
+);
 
 // Trust proxy si estamos en producción (para cookies seguras)
 if (process.env.NODE_ENV === 'production') {
@@ -125,17 +140,17 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 const corsOptions = {
-  origin: function(origin, callback) {
+  origin: function (origin, callback) {
     // Permitir requests sin origin (curl, SSR, Postman, apps móviles, healthchecks)
     if (!origin) {
       return callback(null, true);
     }
-    
+
     // Verificar si está en la lista de orígenes permitidos
     if (allowList.has(origin)) {
       return callback(null, true);
     }
-    
+
     // Origen no permitido - log y rechazar
     console.warn(`[CORS] Origen bloqueado: ${origin}`);
     callback(new Error('Not allowed by CORS'));
@@ -150,10 +165,8 @@ const corsOptions = {
 app.use(cors(corsOptions));
 
 // Manejar preflight OPTIONS para todas las rutas
-// NO usar wildcards con path-to-regexp, usar middleware simple
-app.use(function(req, res, next) {
+app.use(function (req, res, next) {
   if (req.method === 'OPTIONS') {
-    // Responder a preflight requests
     res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
     res.header('Access-Control-Allow-Methods', 'GET, HEAD, PUT, PATCH, POST, DELETE');
     res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -291,7 +304,7 @@ if (process.env.NODE_ENV === 'production') {
   app.use(express.static(frontendPath));
   
   // Fallback para SPA - usar middleware simple en lugar de regex
-  app.use(function(req, res, next) {
+  app.use(function (req, res, next) {
     // No procesar rutas API
     if (req.path.startsWith('/api/') || req.path.startsWith('/uploads/') || req.path.startsWith('/og/')) {
       return res.status(404).json({ error: 'Endpoint no encontrado' });

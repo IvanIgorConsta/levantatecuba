@@ -56,7 +56,7 @@ function isGPT(model) {
  */
 async function callLLM({ model, system, user, temperature = 0.3, timeoutMs = 30000 }) {
   if (isOpenAIModel(model)) {
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, project: process.env.OPENAI_PROJECT_ID });
     
     // Usar API estándar de chat completions con JSON mode para OpenAI
     const res = await openai.chat.completions.create(
@@ -784,7 +784,7 @@ function buildClaudeInput(topic, mode, config, formatStyle = 'standard') {
  * Se mantiene por compatibilidad pero no se llama desde ningún lugar.
  */
 async function generateImagePrompts(topic, draftContent) {
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, project: process.env.OPENAI_PROJECT_ID });
   
   // Extraer fragmento del contenido para contexto
   const palabrasClave = (draftContent.contenidoMarkdown || '').slice(0, 2000);
@@ -1718,7 +1718,7 @@ async function generateImagesLegacyTitleOnly(prompts, config, topic, draft, draf
     console.log(`[Redactor:TitleOnly] negative="${negative}"`);
     
     try {
-      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, project: process.env.OPENAI_PROJECT_ID });
       
       // Configuración base
       const imageConfig = {
@@ -1853,7 +1853,7 @@ async function generateImagesLegacyTitleOnly(prompts, config, topic, draft, draf
       console.log(`[Redactor:AutoImage] prompt="${prompt.substring(0, 120)}..."`);
       
       // Invocar DALL-E con fallback automático
-      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, project: process.env.OPENAI_PROJECT_ID });
       
       const attemptsList = [
         { level: 'A', prompt, label: 'original/sanitizado' }

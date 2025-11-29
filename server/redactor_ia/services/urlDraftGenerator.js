@@ -17,7 +17,7 @@ async function callLLM({ model, system, user, temperature = 0.3, timeoutMs = 300
   }
   
   if (isGPT(model)) {
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, project: process.env.OPENAI_PROJECT_ID });
     const res = await openai.chat.completions.create(
       {
         model,

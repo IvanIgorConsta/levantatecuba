@@ -1,0 +1,1 @@
+function o(r,n=""){return r?r.includes("?")?r:n?`${r}?v=${n}`:r:null}function a(r){var n;return r&&{...r,_cover:r.cover||r.coverUrl||r.imagen||((n=r.imagenes)==null?void 0:n[0])||null,_coverHash:r.coverHash||r.hash||"",_coverKind:r.coverKind||r.imageKind||r.kind||null}}function e(r){return Array.isArray(r)?r.map(a):[]}export{a,o as b,e as n};

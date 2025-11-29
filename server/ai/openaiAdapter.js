@@ -6,7 +6,8 @@
 const OpenAI = require("openai");
 
 const openai = new OpenAI({ 
-  apiKey: process.env.OPENAI_API_KEY 
+  apiKey: process.env.OPENAI_API_KEY,
+  project: process.env.OPENAI_PROJECT_ID 
 });
 
 // Tamaños permitidos por gpt-image-1

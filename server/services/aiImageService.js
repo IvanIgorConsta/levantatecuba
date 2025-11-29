@@ -476,7 +476,7 @@ async function acceptCandidate({ newsId, url, role }) {
 async function generateAltText(title, content) {
   try {
     const OpenAI = require("openai");
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, project: process.env.OPENAI_PROJECT_ID });
     const summary = toSummary(content).substring(0, 200);
     
     const prompt = `Genera un texto alternativo (alt text) para una imagen editorial sobre: "${title}". 
