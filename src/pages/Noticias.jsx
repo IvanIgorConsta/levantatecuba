@@ -221,6 +221,11 @@ export default function Noticias() {
                   className="block w-full aspect-[16/9] object-cover sm:aspect-auto sm:h-full"
                   loading="lazy"
                   decoding="async"
+                  onError={(e) => {
+                    e.target.onerror = null;
+                    e.target.style.display = 'none';
+                    e.target.parentElement.innerHTML = '<div class="w-full h-full bg-gradient-to-br from-zinc-800 to-zinc-700 flex items-center justify-center text-zinc-400 text-xs">Imagen no disponible</div>';
+                  }}
                 />
               ) : (
                 // Cover sin extensión (formato antiguo) - usar picture
@@ -239,6 +244,13 @@ export default function Noticias() {
                     className="w-full h-full object-cover"
                     loading="lazy"
                     decoding="async"
+                    onError={(e) => {
+                      e.target.onerror = null;
+                      e.target.style.display = 'none';
+                      if (e.target.parentElement?.parentElement) {
+                        e.target.parentElement.parentElement.innerHTML = '<div class="w-full h-full bg-gradient-to-br from-zinc-800 to-zinc-700 flex items-center justify-center text-zinc-400 text-xs">Imagen no disponible</div>';
+                      }
+                    }}
                   />
                 </picture>
               )

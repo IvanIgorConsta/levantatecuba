@@ -1,116 +1,47 @@
 // server/redactor_ia/utils/similarity.js
 /**
  * Utilidades de similitud de texto para deduplicación de noticias
- * Implementa múltiples algoritmos: Cosine, Levenshtein, Jaccard
- * 
- * Umbrales de duplicado:
- * - Cosine similarity ≥ 0.70
- * - Levenshtein score ≥ 0.60
- * - Jaccard similarity ≥ 0.65
+ * Implementa múltiples algoritmos: Jaccard, Levenshtein, Cosine
  */
-
-// Stopwords en español para normalización
-const SPANISH_STOPWORDS = new Set([
-  'de', 'la', 'que', 'el', 'en', 'y', 'a', 'los', 'del', 'se', 'las', 'por',
-  'un', 'para', 'con', 'no', 'una', 'su', 'al', 'lo', 'como', 'más', 'pero',
-  'sus', 'le', 'ya', 'o', 'este', 'sí', 'porque', 'esta', 'entre', 'cuando',
-  'muy', 'sin', 'sobre', 'también', 'me', 'hasta', 'hay', 'donde', 'quien',
-  'desde', 'todo', 'nos', 'durante', 'todos', 'uno', 'les', 'ni', 'contra',
-  'otros', 'ese', 'eso', 'ante', 'ellos', 'e', 'esto', 'mí', 'antes', 'algunos',
-  'qué', 'unos', 'yo', 'otro', 'otras', 'otra', 'él', 'tanto', 'esa', 'estos',
-  'mucho', 'quienes', 'nada', 'muchos', 'cual', 'poco', 'ella', 'estar', 'estas',
-  'algunas', 'algo', 'nosotros', 'mi', 'mis', 'tú', 'te', 'ti', 'tu', 'tus',
-  'ellas', 'nosotras', 'vosotros', 'vosotras', 'os', 'mío', 'mía', 'míos', 'mías',
-  'tuyo', 'tuya', 'tuyos', 'tuyas', 'suyo', 'suya', 'suyos', 'suyas', 'nuestro',
-  'nuestra', 'nuestros', 'nuestras', 'vuestro', 'vuestra', 'vuestros', 'vuestras',
-  'esos', 'esas', 'estoy', 'estás', 'está', 'estamos', 'estáis', 'están', 'esté',
-  'estés', 'estemos', 'estéis', 'estén', 'estaré', 'estarás', 'estará', 'estaremos',
-  'estaréis', 'estarán', 'estaría', 'estarías', 'estaríamos', 'estaríais', 'estarían',
-  'estaba', 'estabas', 'estábamos', 'estabais', 'estaban', 'estuve', 'estuviste',
-  'estuvo', 'estuvimos', 'estuvisteis', 'estuvieron', 'estuviera', 'estuvieras',
-  'estuviéramos', 'estuvierais', 'estuvieran', 'estuviese', 'estuvieses', 'estuviésemos',
-  'estuvieseis', 'estuviesen', 'estando', 'estado', 'estada', 'estados', 'estadas',
-  'estad', 'he', 'has', 'ha', 'hemos', 'habéis', 'han', 'haya', 'hayas', 'hayamos',
-  'hayáis', 'hayan', 'habré', 'habrás', 'habrá', 'habremos', 'habréis', 'habrán',
-  'habría', 'habrías', 'habríamos', 'habríais', 'habrían', 'había', 'habías',
-  'habíamos', 'habíais', 'habían', 'hube', 'hubiste', 'hubo', 'hubimos', 'hubisteis',
-  'hubieron', 'hubiera', 'hubieras', 'hubiéramos', 'hubierais', 'hubieran', 'hubiese',
-  'hubieses', 'hubiésemos', 'hubieseis', 'hubiesen', 'habiendo', 'habido', 'habida',
-  'habidos', 'habidas', 'soy', 'eres', 'es', 'somos', 'sois', 'son', 'sea', 'seas',
-  'seamos', 'seáis', 'sean', 'seré', 'serás', 'será', 'seremos', 'seréis', 'serán',
-  'sería', 'serías', 'seríamos', 'seríais', 'serían', 'era', 'eras', 'éramos',
-  'erais', 'eran', 'fui', 'fuiste', 'fue', 'fuimos', 'fuisteis', 'fueron', 'fuera',
-  'fueras', 'fuéramos', 'fuerais', 'fueran', 'fuese', 'fueses', 'fuésemos', 'fueseis',
-  'fuesen', 'siendo', 'sido', 'tengo', 'tienes', 'tiene', 'tenemos', 'tenéis',
-  'tienen', 'tenga', 'tengas', 'tengamos', 'tengáis', 'tengan', 'tendré', 'tendrás',
-  'tendrá', 'tendremos', 'tendréis', 'tendrán', 'tendría', 'tendrías', 'tendríamos',
-  'tendríais', 'tendrían', 'tenía', 'tenías', 'teníamos', 'teníais', 'tenían',
-  'tuve', 'tuviste', 'tuvo', 'tuvimos', 'tuvisteis', 'tuvieron', 'tuviera', 'tuvieras',
-  'tuviéramos', 'tuvierais', 'tuvieran', 'tuviese', 'tuvieses', 'tuviésemos',
-  'tuvieseis', 'tuviesen', 'teniendo', 'tenido', 'tenida', 'tenidos', 'tenidas', 'tened'
-]);
-
-// Stopwords en inglés
-const ENGLISH_STOPWORDS = new Set([
-  'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of',
-  'with', 'by', 'from', 'as', 'is', 'was', 'are', 'were', 'been', 'be', 'have',
-  'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may',
-  'might', 'must', 'shall', 'can', 'need', 'dare', 'ought', 'used', 'it', 'its',
-  'this', 'that', 'these', 'those', 'i', 'you', 'he', 'she', 'we', 'they', 'what',
-  'which', 'who', 'whom', 'whose', 'where', 'when', 'why', 'how', 'all', 'each',
-  'every', 'both', 'few', 'more', 'most', 'other', 'some', 'such', 'no', 'nor',
-  'not', 'only', 'own', 'same', 'so', 'than', 'too', 'very', 'just', 'also'
-]);
-
-// Combinar stopwords
-const ALL_STOPWORDS = new Set([...SPANISH_STOPWORDS, ...ENGLISH_STOPWORDS]);
 
 /**
- * Normaliza texto para comparación de similitud
- * - Lowercase
- * - Remove punctuation
- * - Remove stopwords
- * - Collapse spaces
- * @param {string} text - Texto a normalizar
- * @returns {string} Texto normalizado
+ * Normaliza un título para comparación
+ * @param {string} title - Título original
+ * @returns {string} Título normalizado
  */
-function normalizeText(text) {
-  if (!text || typeof text !== 'string') return '';
+function normalizeTitle(title) {
+  if (!title || typeof title !== 'string') return '';
   
-  return text
+  return title
     .toLowerCase()
     .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '') // Remove diacritics
-    .replace(/[^\w\s]/g, ' ')        // Remove punctuation
-    .split(/\s+/)
-    .filter(word => word.length > 1 && !ALL_STOPWORDS.has(word))
-    .join(' ')
+    .replace(/[\u0300-\u036f]/g, '') // Quitar acentos
+    .replace(/[^\w\s]/g, ' ')        // Quitar puntuación
+    .replace(/\s+/g, ' ')            // Normalizar espacios
     .trim();
 }
 
 /**
- * Tokeniza texto en palabras únicas (para Jaccard/Cosine)
- * @param {string} text - Texto normalizado
- * @returns {Set<string>} Set de palabras únicas
+ * Tokeniza un texto en palabras
+ * @param {string} text - Texto a tokenizar
+ * @returns {string[]} Array de tokens
  */
 function tokenize(text) {
-  const normalized = normalizeText(text);
-  return new Set(normalized.split(/\s+/).filter(w => w.length > 0));
+  const normalized = normalizeTitle(text);
+  return normalized.split(' ').filter(w => w.length > 2); // Ignorar palabras muy cortas
 }
 
 /**
- * Calcula similitud de Jaccard entre dos textos
- * J(A,B) = |A ∩ B| / |A ∪ B|
- * @param {string} text1 - Primer texto
- * @param {string} text2 - Segundo texto
+ * Calcula similitud Jaccard entre dos conjuntos de tokens
+ * @param {string[]} tokens1 
+ * @param {string[]} tokens2 
  * @returns {number} Similitud entre 0 y 1
  */
-function jaccardSimilarity(text1, text2) {
-  const set1 = tokenize(text1);
-  const set2 = tokenize(text2);
+function jaccardSimilarity(tokens1, tokens2) {
+  if (!tokens1.length || !tokens2.length) return 0;
   
-  if (set1.size === 0 && set2.size === 0) return 1;
-  if (set1.size === 0 || set2.size === 0) return 0;
+  const set1 = new Set(tokens1);
+  const set2 = new Set(tokens2);
   
   const intersection = new Set([...set1].filter(x => set2.has(x)));
   const union = new Set([...set1, ...set2]);
@@ -119,265 +50,231 @@ function jaccardSimilarity(text1, text2) {
 }
 
 /**
- * Calcula similitud coseno entre dos textos usando TF (Term Frequency)
- * @param {string} text1 - Primer texto
- * @param {string} text2 - Segundo texto
- * @returns {number} Similitud entre 0 y 1
- */
-function cosineSimilarity(text1, text2) {
-  const words1 = normalizeText(text1).split(/\s+/).filter(w => w.length > 0);
-  const words2 = normalizeText(text2).split(/\s+/).filter(w => w.length > 0);
-  
-  if (words1.length === 0 && words2.length === 0) return 1;
-  if (words1.length === 0 || words2.length === 0) return 0;
-  
-  // Build term frequency maps
-  const tf1 = {};
-  const tf2 = {};
-  
-  words1.forEach(w => { tf1[w] = (tf1[w] || 0) + 1; });
-  words2.forEach(w => { tf2[w] = (tf2[w] || 0) + 1; });
-  
-  // Get all unique terms
-  const allTerms = new Set([...Object.keys(tf1), ...Object.keys(tf2)]);
-  
-  // Calculate dot product and magnitudes
-  let dotProduct = 0;
-  let magnitude1 = 0;
-  let magnitude2 = 0;
-  
-  allTerms.forEach(term => {
-    const v1 = tf1[term] || 0;
-    const v2 = tf2[term] || 0;
-    dotProduct += v1 * v2;
-    magnitude1 += v1 * v1;
-    magnitude2 += v2 * v2;
-  });
-  
-  magnitude1 = Math.sqrt(magnitude1);
-  magnitude2 = Math.sqrt(magnitude2);
-  
-  if (magnitude1 === 0 || magnitude2 === 0) return 0;
-  
-  return dotProduct / (magnitude1 * magnitude2);
-}
-
-/**
- * Calcula distancia de Levenshtein entre dos strings
- * @param {string} str1 - Primer string
- * @param {string} str2 - Segundo string
- * @returns {number} Distancia de edición
- */
-function levenshteinDistance(str1, str2) {
-  const s1 = normalizeText(str1);
-  const s2 = normalizeText(str2);
-  
-  if (s1 === s2) return 0;
-  if (s1.length === 0) return s2.length;
-  if (s2.length === 0) return s1.length;
-  
-  // Use two-row optimization for memory efficiency
-  let prevRow = Array(s2.length + 1).fill(0).map((_, i) => i);
-  let currRow = Array(s2.length + 1).fill(0);
-  
-  for (let i = 1; i <= s1.length; i++) {
-    currRow[0] = i;
-    
-    for (let j = 1; j <= s2.length; j++) {
-      const cost = s1[i - 1] === s2[j - 1] ? 0 : 1;
-      currRow[j] = Math.min(
-        prevRow[j] + 1,      // deletion
-        currRow[j - 1] + 1,  // insertion
-        prevRow[j - 1] + cost // substitution
-      );
-    }
-    
-    [prevRow, currRow] = [currRow, prevRow];
-  }
-  
-  return prevRow[s2.length];
-}
-
-/**
- * Calcula score de similitud Levenshtein normalizado (0-1)
- * @param {string} str1 - Primer string
- * @param {string} str2 - Segundo string
+ * Calcula distancia de Levenshtein normalizada
+ * @param {string} str1 
+ * @param {string} str2 
  * @returns {number} Similitud entre 0 y 1
  */
 function levenshteinSimilarity(str1, str2) {
-  const s1 = normalizeText(str1);
-  const s2 = normalizeText(str2);
+  const s1 = normalizeTitle(str1);
+  const s2 = normalizeTitle(str2);
   
   if (s1 === s2) return 1;
+  if (!s1.length || !s2.length) return 0;
   
   const maxLen = Math.max(s1.length, s2.length);
-  if (maxLen === 0) return 1;
+  const distance = levenshteinDistance(s1, s2);
   
-  const distance = levenshteinDistance(str1, str2);
   return 1 - (distance / maxLen);
 }
 
 /**
- * Determina si dos títulos son duplicados usando múltiples algoritmos
- * Un par es duplicado si cumple CUALQUIERA de:
- * - Cosine similarity ≥ 0.70
- * - Levenshtein score ≥ 0.60
- * - Jaccard similarity ≥ 0.65
- * 
- * @param {string} title1 - Primer título
- * @param {string} title2 - Segundo título
- * @param {Object} thresholds - Umbrales personalizados (opcional)
- * @returns {{ isDuplicate: boolean, scores: Object, matchedBy: string|null }}
+ * Calcula distancia de Levenshtein
  */
-function areDuplicates(title1, title2, thresholds = {}) {
-  const {
-    cosineThreshold = 0.70,
-    levenshteinThreshold = 0.60,
-    jaccardThreshold = 0.65
-  } = thresholds;
+function levenshteinDistance(str1, str2) {
+  const m = str1.length;
+  const n = str2.length;
   
-  const cosine = cosineSimilarity(title1, title2);
-  const levenshtein = levenshteinSimilarity(title1, title2);
-  const jaccard = jaccardSimilarity(title1, title2);
-  
-  const scores = { cosine, levenshtein, jaccard };
-  
-  let matchedBy = null;
-  
-  if (cosine >= cosineThreshold) {
-    matchedBy = 'cosine';
-  } else if (levenshtein >= levenshteinThreshold) {
-    matchedBy = 'levenshtein';
-  } else if (jaccard >= jaccardThreshold) {
-    matchedBy = 'jaccard';
+  // Optimización para strings muy diferentes en longitud
+  if (Math.abs(m - n) > Math.max(m, n) * 0.5) {
+    return Math.max(m, n);
   }
   
-  return {
-    isDuplicate: matchedBy !== null,
-    scores,
-    matchedBy
-  };
+  const dp = Array(m + 1).fill(null).map(() => Array(n + 1).fill(0));
+  
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      const cost = str1[i - 1] === str2[j - 1] ? 0 : 1;
+      dp[i][j] = Math.min(
+        dp[i - 1][j] + 1,      // Eliminación
+        dp[i][j - 1] + 1,      // Inserción
+        dp[i - 1][j - 1] + cost // Sustitución
+      );
+    }
+  }
+  
+  return dp[m][n];
 }
 
 /**
- * Deduplica una lista de artículos/temas basándose en similitud de títulos
- * Mantiene el artículo con mayor impacto, o el primero si son iguales
- * 
- * @param {Array} items - Lista de artículos/temas con campo 'title' o 'tituloSugerido'
- * @param {Object} options - Opciones de configuración
- * @param {string} options.titleField - Campo que contiene el título (default: 'title')
- * @param {string} options.impactField - Campo que contiene el impacto (default: 'impacto')
- * @param {boolean} options.verbose - Si loguear duplicados encontrados (default: true)
- * @returns {{ unique: Array, duplicatesSkipped: number, duplicateDetails: Array }}
+ * Calcula similitud coseno entre dos textos
+ * @param {string} text1 
+ * @param {string} text2 
+ * @returns {number} Similitud entre 0 y 1
  */
-function deduplicateByTitle(items, options = {}) {
+function cosineSimilarity(text1, text2) {
+  const tokens1 = tokenize(text1);
+  const tokens2 = tokenize(text2);
+  
+  if (!tokens1.length || !tokens2.length) return 0;
+  
+  // Crear vocabulario
+  const vocab = new Set([...tokens1, ...tokens2]);
+  
+  // Crear vectores de frecuencia
+  const freq1 = {};
+  const freq2 = {};
+  
+  tokens1.forEach(t => freq1[t] = (freq1[t] || 0) + 1);
+  tokens2.forEach(t => freq2[t] = (freq2[t] || 0) + 1);
+  
+  // Calcular producto punto y magnitudes
+  let dotProduct = 0;
+  let mag1 = 0;
+  let mag2 = 0;
+  
+  vocab.forEach(word => {
+    const v1 = freq1[word] || 0;
+    const v2 = freq2[word] || 0;
+    dotProduct += v1 * v2;
+    mag1 += v1 * v1;
+    mag2 += v2 * v2;
+  });
+  
+  const magnitude = Math.sqrt(mag1) * Math.sqrt(mag2);
+  return magnitude > 0 ? dotProduct / magnitude : 0;
+}
+
+/**
+ * Calcula similitud combinada usando múltiples algoritmos
+ * @param {string} title1 
+ * @param {string} title2 
+ * @returns {{ combined: number, jaccard: number, levenshtein: number, cosine: number }}
+ */
+function combinedSimilarity(title1, title2) {
+  const tokens1 = tokenize(title1);
+  const tokens2 = tokenize(title2);
+  
+  const jaccard = jaccardSimilarity(tokens1, tokens2);
+  const levenshtein = levenshteinSimilarity(title1, title2);
+  const cosine = cosineSimilarity(title1, title2);
+  
+  // Promedio ponderado: Jaccard y Cosine son más robustos para títulos
+  const combined = (jaccard * 0.35) + (levenshtein * 0.25) + (cosine * 0.40);
+  
+  return { combined, jaccard, levenshtein, cosine };
+}
+
+/**
+ * Deduplica artículos por similitud de título
+ * @param {Object[]} articles - Array de artículos
+ * @param {Object} options - Opciones de configuración
+ * @returns {{ unique: Object[], duplicatesSkipped: number }}
+ */
+function deduplicateByTitle(articles, options = {}) {
   const {
     titleField = 'title',
     impactField = 'impacto',
-    verbose = true
+    threshold = 0.70,        // Umbral de similitud para considerar duplicado
+    verbose = false
   } = options;
   
-  if (!items || items.length === 0) {
-    return { unique: [], duplicatesSkipped: 0, duplicateDetails: [] };
+  if (!Array.isArray(articles) || articles.length === 0) {
+    return { unique: [], duplicatesSkipped: 0 };
   }
   
+  // Ordenar por impacto descendente (mantener el de mayor impacto)
+  const sorted = [...articles].sort((a, b) => {
+    const impactA = a[impactField] || 0;
+    const impactB = b[impactField] || 0;
+    return impactB - impactA;
+  });
+  
   const unique = [];
-  const duplicateDetails = [];
+  const seenTitles = [];
   let duplicatesSkipped = 0;
   
-  for (const item of items) {
-    const itemTitle = item[titleField] || item.tituloSugerido || item.title || '';
-    const itemImpact = item[impactField] || item.impacto || 0;
+  for (const article of sorted) {
+    const title = article[titleField] || '';
     
+    if (!title) {
+      // Sin título, incluir de todos modos
+      unique.push(article);
+      continue;
+    }
+    
+    // Verificar similitud con títulos ya vistos
     let isDuplicate = false;
-    let duplicateOf = null;
-    let duplicateIndex = -1;
-    let matchInfo = null;
     
-    // Comparar con items ya aceptados
-    for (let i = 0; i < unique.length; i++) {
-      const existingTitle = unique[i][titleField] || unique[i].tituloSugerido || unique[i].title || '';
-      const result = areDuplicates(itemTitle, existingTitle);
+    for (const seenTitle of seenTitles) {
+      const sim = combinedSimilarity(title, seenTitle);
       
-      if (result.isDuplicate) {
+      if (sim.combined >= threshold) {
         isDuplicate = true;
-        duplicateOf = existingTitle;
-        duplicateIndex = i;
-        matchInfo = result;
+        duplicatesSkipped++;
+        
+        if (verbose) {
+          console.log(`[Similarity] 🔄 Duplicado detectado (${(sim.combined * 100).toFixed(1)}%):`);
+          console.log(`  Original: "${seenTitle.substring(0, 60)}..."`);
+          console.log(`  Duplicado: "${title.substring(0, 60)}..."`);
+        }
         break;
       }
     }
     
-    if (isDuplicate) {
-      const existingImpact = unique[duplicateIndex][impactField] || unique[duplicateIndex].impacto || 0;
-      
-      // Si el nuevo tiene mayor impacto, reemplazar
-      if (itemImpact > existingImpact) {
-        if (verbose) {
-          console.log(`[Scanner] 🔄 Reemplazando duplicado (mayor impacto ${itemImpact} > ${existingImpact}): "${itemTitle.substring(0, 60)}..."`);
-        }
-        duplicateDetails.push({
-          skipped: unique[duplicateIndex][titleField] || unique[duplicateIndex].tituloSugerido,
-          keptTitle: itemTitle,
-          matchedBy: matchInfo.matchedBy,
-          scores: matchInfo.scores
-        });
-        unique[duplicateIndex] = item;
-      } else {
-        if (verbose) {
-          console.log(`[Scanner] ⏭️  Duplicado ignorado (${matchInfo.matchedBy}=${matchInfo.scores[matchInfo.matchedBy].toFixed(2)}): "${itemTitle.substring(0, 60)}..."`);
-        }
-        duplicateDetails.push({
-          skipped: itemTitle,
-          keptTitle: duplicateOf,
-          matchedBy: matchInfo.matchedBy,
-          scores: matchInfo.scores
-        });
-      }
-      duplicatesSkipped++;
-    } else {
-      unique.push(item);
+    if (!isDuplicate) {
+      unique.push(article);
+      seenTitles.push(title);
     }
   }
   
-  return { unique, duplicatesSkipped, duplicateDetails };
+  if (verbose && duplicatesSkipped > 0) {
+    console.log(`[Similarity] ✅ Deduplicación completada: ${unique.length} únicos, ${duplicatesSkipped} duplicados eliminados`);
+  }
+  
+  return { unique, duplicatesSkipped };
 }
 
 /**
- * Verifica si un nuevo artículo es duplicado de alguno existente en la base de datos
- * Útil para verificar antes de insertar
- * 
- * @param {string} newTitle - Título del nuevo artículo
- * @param {Array} existingTitles - Lista de títulos existentes
- * @returns {{ isDuplicate: boolean, duplicateOf: string|null, matchInfo: Object|null }}
+ * Verifica si un título es similar a alguno en una lista existente
+ * Útil para verificar contra noticias ya publicadas
+ * @param {string} newTitle - Título nuevo a verificar
+ * @param {string[]} existingTitles - Títulos existentes
+ * @param {number} threshold - Umbral de similitud (default 0.70)
+ * @returns {{ isDuplicate: boolean, matchedTitle: string|null, similarity: number }}
  */
-function checkAgainstExisting(newTitle, existingTitles) {
-  for (const existingTitle of existingTitles) {
-    const result = areDuplicates(newTitle, existingTitle);
-    if (result.isDuplicate) {
-      return {
-        isDuplicate: true,
-        duplicateOf: existingTitle,
-        matchInfo: result
+function checkTitleDuplicate(newTitle, existingTitles, threshold = 0.70) {
+  if (!newTitle || !Array.isArray(existingTitles)) {
+    return { isDuplicate: false, matchedTitle: null, similarity: 0 };
+  }
+  
+  let maxSimilarity = 0;
+  let matchedTitle = null;
+  
+  for (const existing of existingTitles) {
+    const sim = combinedSimilarity(newTitle, existing);
+    
+    if (sim.combined > maxSimilarity) {
+      maxSimilarity = sim.combined;
+      matchedTitle = existing;
+    }
+    
+    if (sim.combined >= threshold) {
+      return { 
+        isDuplicate: true, 
+        matchedTitle: existing, 
+        similarity: sim.combined 
       };
     }
   }
   
-  return { isDuplicate: false, duplicateOf: null, matchInfo: null };
+  return { 
+    isDuplicate: false, 
+    matchedTitle, 
+    similarity: maxSimilarity 
+  };
 }
 
 module.exports = {
-  normalizeText,
+  normalizeTitle,
   tokenize,
   jaccardSimilarity,
-  cosineSimilarity,
-  levenshteinDistance,
   levenshteinSimilarity,
-  areDuplicates,
+  cosineSimilarity,
+  combinedSimilarity,
   deduplicateByTitle,
-  checkAgainstExisting,
-  // Export constants for testing
-  SPANISH_STOPWORDS,
-  ENGLISH_STOPWORDS,
-  ALL_STOPWORDS
+  checkTitleDuplicate
 };

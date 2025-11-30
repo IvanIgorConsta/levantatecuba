@@ -371,7 +371,7 @@ export default function AdminNews() {
         }
       }
     } catch (err) {
-      console.error("❌ Error al obtener noticias", err);
+      console.error("❌ Error al obtener noticias:", err?.message || err?.toString() || 'Error de conexión');
     } finally {
       // Solo quitar loading si esta es la request más reciente
       if (currentRequestId === requestIdRef.current) {
@@ -581,14 +581,21 @@ export default function AdminNews() {
     if (!window.confirm("¿Estás seguro de eliminar esta noticia?")) return;
     try {
       const token = localStorage.getItem("token");
-      await fetch(`/api/news/${id}`, {
+      const res = await fetch(`/api/news/${id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
+      
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || data.message || `Error ${res.status}`);
+      }
+      
       await fetchNoticias({ page: currentPage, limit: pageSize, ...filtros });
       await refreshCounts(); // actualizar contadores tras eliminar
     } catch (err) {
-      console.error("Error al eliminar", err);
+      console.error("Error al eliminar:", err?.message || err);
+      alert(`Error al eliminar: ${err?.message || 'Error de conexión'}`);
     }
   };
 

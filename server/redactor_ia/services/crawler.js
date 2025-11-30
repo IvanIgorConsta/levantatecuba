@@ -16,7 +16,9 @@ const {
   hostOf,
   canonicalUrl
 } = require('../config/freshness');
-const { deduplicateByTitle } = require('../utils/similarity');
+const { deduplicateByTitle, checkTitleDuplicate } = require('../utils/similarity');
+const News = require('../../models/News');
+const AiDraft = require('../../models/AiDraft');
 
 // Control de concurrencia: Map por tenant para evitar escaneos simultáneos
 const scanningByTenant = new Map();
@@ -384,10 +386,63 @@ async function scanSources() {
       console.log(`[Crawler] 🔍 Deduplicación por título: ${titleDupesSkipped} duplicados eliminados`);
     }
     
+    // 5.1c Verificar contra noticias ya publicadas y borradores existentes (últimos 7 días)
+    let publishedDupesSkipped = 0;
+    let draftDupesSkipped = 0;
+    let notDuplicatedWithPublished = dedupedArticles;
+    
+    try {
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      
+      // Obtener títulos de noticias publicadas y borradores en paralelo
+      const [recentNews, recentDrafts] = await Promise.all([
+        News.find({ createdAt: { $gte: sevenDaysAgo } }, { titulo: 1 }).lean(),
+        AiDraft.find({ createdAt: { $gte: sevenDaysAgo } }, { titulo: 1 }).lean()
+      ]);
+      
+      const publishedTitles = recentNews.map(n => n.titulo).filter(Boolean);
+      const draftTitles = recentDrafts.map(d => d.titulo).filter(Boolean);
+      const allExistingTitles = [...publishedTitles, ...draftTitles];
+      
+      if (allExistingTitles.length > 0) {
+        console.log(`[Crawler] 📰 Verificando contra ${publishedTitles.length} publicadas + ${draftTitles.length} borradores...`);
+        
+        notDuplicatedWithPublished = dedupedArticles.filter(article => {
+          const title = article.title || '';
+          if (!title) return true;
+          
+          // Verificar contra publicadas
+          const checkPublished = checkTitleDuplicate(title, publishedTitles, 0.70);
+          if (checkPublished.isDuplicate) {
+            publishedDupesSkipped++;
+            console.log(`[Crawler] 🚫 Duplicado de publicada (${(checkPublished.similarity * 100).toFixed(0)}%): "${title.substring(0, 50)}..."`);
+            return false;
+          }
+          
+          // Verificar contra borradores
+          const checkDraft = checkTitleDuplicate(title, draftTitles, 0.70);
+          if (checkDraft.isDuplicate) {
+            draftDupesSkipped++;
+            console.log(`[Crawler] 🚫 Duplicado de borrador (${(checkDraft.similarity * 100).toFixed(0)}%): "${title.substring(0, 50)}..."`);
+            return false;
+          }
+          
+          return true;
+        });
+        
+        if (publishedDupesSkipped > 0 || draftDupesSkipped > 0) {
+          console.log(`[Crawler] 🔍 Duplicados eliminados: ${publishedDupesSkipped} publicadas, ${draftDupesSkipped} borradores`);
+        }
+      }
+    } catch (err) {
+      console.warn(`[Crawler] ⚠️ Error verificando duplicados: ${err.message}`);
+      // Continuar sin esta verificación
+    }
+    
     // 5.2 Freshness gate: Solo artículos dentro de la ventana temporal
     const now = Date.now();
     const windowMs = windowHours * 60 * 60 * 1000;
-    const freshArticles = dedupedArticles.filter(article => {
+    const freshArticles = notDuplicatedWithPublished.filter(article => {
       const pubDate = article.publishedAt ? new Date(article.publishedAt) : null;
       if (!pubDate || isNaN(pubDate.getTime())) {
         return false; // Descartar sin fecha
@@ -429,6 +484,9 @@ async function scanSources() {
       afterUrlDedup: urlDedupedArticles.length,
       afterTitleDedup: dedupedArticles.length,
       titleDupesRemoved: titleDupesSkipped,
+      afterExistingDedup: notDuplicatedWithPublished.length,
+      publishedDupesRemoved: publishedDupesSkipped,
+      draftDupesRemoved: draftDupesSkipped,
       afterWindow: freshArticles.length,
       afterCap: cappedArticles.length
     });

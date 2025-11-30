@@ -27,7 +27,7 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="admin-ui flex min-h-screen bg-zinc-950 text-white">
+    <div className="admin-ui flex min-h-screen bg-[#0d0d0d] text-white">
       {/* Sidebar fijo en escritorio */}
       <div className="hidden md:block">
         <Sidebar />
@@ -48,7 +48,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      <main className="flex-grow p-4 md:p-8 overflow-y-auto w-full bg-zinc-950 admin-scrollbar text-white">
+      <main className="flex-grow p-4 md:p-8 overflow-y-auto w-full bg-[#0d0d0d] admin-scrollbar text-white">
         {/* Botón menú en móvil */}
         <div className="flex justify-between items-center mb-4 md:hidden">
           <button

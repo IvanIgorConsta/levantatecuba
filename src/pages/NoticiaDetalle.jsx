@@ -4,7 +4,8 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import DOMPurify from "dompurify";
 import { FaFacebook, FaTelegram, FaTwitter, FaWhatsapp } from "react-icons/fa";
-import { MessageSquareText, Newspaper, Clock } from "lucide-react";
+import { MessageSquareText, Newspaper, Clock, FileText } from "lucide-react";
+import PageHeader from "../components/PageHeader";
 import ShopCTA from "../components/ShopCTA";
 import DebugShopCTA from "../components/DebugShopCTA";
 import CommentThread from "../components/CommentThread";
@@ -453,17 +454,18 @@ export default function NoticiaDetalle() {
       />
 
       <div className="min-h-screen bg-transparent text-white">
-        <main className="pt-[calc(var(--nav-h)+12px)] max-w-3xl mx-auto px-4 md:px-6 space-y-6">
-          <Link
-            to="/noticias"
-            className="inline-flex items-center gap-2 rounded-xl border border-zinc-800 bg-zinc-900/60 hover:bg-zinc-900 px-4 py-2 mt-2 md:mt-3 text-white/80 hover:text-white transition-all duration-200 font-semibold text-sm"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-            </svg>
-            Volver a Noticias
-          </Link>
+        {/* PageHeader con breadcrumb */}
+        <PageHeader
+          breadcrumb={[
+            { label: 'Inicio', href: '/' },
+            { label: 'Noticias', href: '/noticias' },
+            { label: noticia?.categoria || 'Artículo' }
+          ]}
+          icon={FileText}
+          title={noticia?.categoria || 'Noticia'}
+        />
 
+        <main className="max-w-3xl mx-auto px-4 md:px-6 space-y-6">
           {noticia._cover && (
             <div 
               key={noticia._coverHash || noticia._id} 
@@ -478,6 +480,11 @@ export default function NoticiaDetalle() {
                   loading="eager"
                   decoding="async"
                   fetchpriority="high"
+                  onError={(e) => {
+                    e.target.onerror = null;
+                    e.target.style.display = 'none';
+                    e.target.parentElement.innerHTML = '<div class="w-full h-full bg-gradient-to-br from-zinc-800 to-zinc-700 flex items-center justify-center text-zinc-500 rounded-lg sm:rounded-xl"><svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></div>';
+                  }}
                 />
               ) : (
                 // Cover sin extensión (formato antiguo) - usar picture
@@ -497,6 +504,13 @@ export default function NoticiaDetalle() {
                     loading="eager"
                     decoding="async"
                     fetchpriority="high"
+                    onError={(e) => {
+                      e.target.onerror = null;
+                      e.target.style.display = 'none';
+                      if (e.target.parentElement?.parentElement) {
+                        e.target.parentElement.parentElement.innerHTML = '<div class="w-full h-full bg-gradient-to-br from-zinc-800 to-zinc-700 flex items-center justify-center text-zinc-500 rounded-lg sm:rounded-xl"><svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></div>';
+                      }
+                    }}
                   />
                 </picture>
               )}

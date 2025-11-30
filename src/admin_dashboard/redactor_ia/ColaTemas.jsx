@@ -11,6 +11,7 @@ export default function ColaTemas() {
   const [loading, setLoading] = useState(true);
   const [scanning, setScanning] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [generatingMode, setGeneratingMode] = useState(null); // 'factual' | 'opinion' | null
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [isBulkBusy, setIsBulkBusy] = useState(false);
   const [generatingById, setGeneratingById] = useState({});
@@ -209,6 +210,7 @@ export default function ColaTemas() {
     const modeLabel = mode === 'factual' ? 'factual' : 'opinión';
     
     setIsGenerating(true);
+    setGeneratingMode(mode);
     
     // Marcar todos los seleccionados como "loading"
     selectedTopicIds.forEach(id => setGen(id, 'loading'));
@@ -310,6 +312,7 @@ export default function ColaTemas() {
     } finally {
       // SIEMPRE liberar el lock de generación
       setIsGenerating(false);
+      setGeneratingMode(null);
     }
   };
 
@@ -465,10 +468,10 @@ export default function ColaTemas() {
           <button
             onClick={() => handleGenerate('factual')}
             disabled={selectedIds.size === 0 || isBulkBusy || isGenerating}
-            aria-label={isGenerating ? "Generando..." : "Generar borradores factuales"}
+            aria-label={generatingMode === 'factual' ? "Generando..." : "Generar borradores factuales"}
             className="h-11 xl:h-12 min-w-[44px] lg:col-span-3 xl:col-span-2 flex items-center justify-center gap-2 px-4 lg:px-5 bg-blue-600 hover:bg-blue-700 disabled:bg-zinc-700 disabled:cursor-not-allowed rounded-xl font-medium transition-colors text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
-            {isGenerating ? (
+            {generatingMode === 'factual' ? (
               <>
                 <RefreshCw size={16} className="animate-spin" />
                 <span className="hidden sm:inline">Generando...</span>
@@ -483,10 +486,10 @@ export default function ColaTemas() {
           <button
             onClick={() => handleGenerate('opinion')}
             disabled={selectedIds.size === 0 || isBulkBusy || isGenerating}
-            aria-label={isGenerating ? "Generando..." : "Generar borradores de opinión"}
+            aria-label={generatingMode === 'opinion' ? "Generando..." : "Generar borradores de opinión"}
             className="h-11 xl:h-12 min-w-[44px] lg:col-span-3 xl:col-span-2 flex items-center justify-center gap-2 px-4 lg:px-5 bg-purple-600 hover:bg-purple-700 disabled:bg-zinc-700 disabled:cursor-not-allowed rounded-xl font-medium transition-colors text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
           >
-            {isGenerating ? (
+            {generatingMode === 'opinion' ? (
               <>
                 <RefreshCw size={16} className="animate-spin" />
                 <span className="hidden sm:inline">Generando...</span>

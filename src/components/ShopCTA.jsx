@@ -58,7 +58,7 @@ export default function ShopCTA({ variant = "default" }) {
           console.debug('[ShopCTA] ✅ Product set:', preferred?.title);
         }
       } catch (error) { 
-        console.error('[ShopCTA] ❌ Error loading product:', error);
+        console.error('[ShopCTA] ❌ Error loading product:', error?.message || error?.toString() || 'Unknown error');
       } finally {
         if (alive) {
           setLoading(false);

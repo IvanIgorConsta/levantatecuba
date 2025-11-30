@@ -4,7 +4,7 @@ import { ShoppingBag, Loader2, ExternalLink, Filter, ChevronRight } from 'lucide
 import { Link } from 'react-router-dom';
 import { listShopifyProducts } from '../lib/shopifyClient';
 import { RUNTIME_CONFIG, isExternalStore } from '../lib/runtimeConfig';
-import BackButton from '../components/BackButton';
+import PageHeader from '../components/PageHeader';
 
 export default function Tienda() {
   const [products, setProducts] = useState([]);
@@ -125,24 +125,20 @@ export default function Tienda() {
 
   // Mostrar tienda con productos (o estado vacío)
   return (
-    <div className="min-h-screen bg-zinc-950 text-white">
-      <div className="bg-zinc-900 border-b border-zinc-800 py-12">
-        <div className="container mx-auto px-4">
-          {/* Botón volver */}
-          <div className="mb-4">
-            <BackButton label="Volver" fallbackTo="/" />
-          </div>
-          
-          <h1 className="text-4xl font-bold text-white mb-2">
-            Tienda Oficial
-          </h1>
-          <p className="text-zinc-400">
-            Apoya la causa con nuestro merchandising exclusivo
-          </p>
-        </div>
-      </div>
+    <main className="min-h-screen bg-transparent text-white">
+      {/* Cabecera unificada */}
+      <PageHeader
+        breadcrumb={[
+          { label: 'Inicio', href: '/' },
+          { label: 'Tienda' }
+        ]}
+        icon={ShoppingBag}
+        title="Tienda"
+        titleHighlight="Oficial"
+        subtitle="Apoya la causa con nuestro merchandising exclusivo"
+      />
 
-      <div className="container mx-auto px-4 py-8">
+      <div className="max-w-6xl mx-auto px-4 md:px-6 py-8">
         {/* Filtros de categoría */}
         {products.length > 0 && (
           <div className="mb-8">
@@ -249,6 +245,6 @@ export default function Tienda() {
           </div>
         )}
       </div>
-    </div>
+    </main>
   );
 }

@@ -1313,6 +1313,44 @@ async function publishNewsToFacebook(news, options = {}) {
     });
   }
   
+  // ========================================
+  // VERIFICACIÓN DE DUPLICADOS
+  // ========================================
+  // Si ya tiene facebook_post_id, ya fue publicada
+  if (news.facebook_post_id) {
+    console.warn(`[FB Publisher] ⚠️ Noticia ${news._id} ya publicada en Facebook (post_id: ${news.facebook_post_id})`);
+    throw new Error('Esta noticia ya fue publicada en Facebook', {
+      cause: { 
+        code: 'ALREADY_PUBLISHED', 
+        httpStatus: 409,
+        existingPostId: news.facebook_post_id,
+        permalink: news.facebook_permalink_url
+      }
+    });
+  }
+  
+  // Si publishedToFacebook es true, también es duplicado
+  if (news.publishedToFacebook === true) {
+    console.warn(`[FB Publisher] ⚠️ Noticia ${news._id} marcada como publicada en Facebook`);
+    throw new Error('Esta noticia ya fue publicada en Facebook', {
+      cause: { 
+        code: 'ALREADY_PUBLISHED', 
+        httpStatus: 409 
+      }
+    });
+  }
+  
+  // Si facebook_status es 'published' o 'sharing', no publicar
+  if (news.facebook_status === 'published' || news.facebook_status === 'sharing') {
+    console.warn(`[FB Publisher] ⚠️ Noticia ${news._id} tiene facebook_status=${news.facebook_status}`);
+    throw new Error(`Esta noticia ya está ${news.facebook_status === 'sharing' ? 'siendo publicada' : 'publicada'} en Facebook`, {
+      cause: { 
+        code: news.facebook_status === 'sharing' ? 'PUBLISHING_IN_PROGRESS' : 'ALREADY_PUBLISHED', 
+        httpStatus: 409 
+      }
+    });
+  }
+  
   // Construir URL pública de la noticia
   const canonicalUrl = buildNewsPublicUrl(news._id);
   

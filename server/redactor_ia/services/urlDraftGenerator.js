@@ -1,7 +1,7 @@
 // server/redactor_ia/services/urlDraftGenerator.js
 const { marked } = require('marked');
 const { extractArticleContent } = require('./urlExtractor');
-const { buildSystemPrompt } = require('./promptBuilder');
+const { buildSystemPrompt, strictValidateAndAutocorrect } = require('./promptBuilder');
 const { deriveCategory } = require('../utils/categoryDeriver');
 const AiConfig = require('../../models/AiConfig');
 
@@ -180,11 +180,30 @@ Responde SOLO con el JSON, sin explicaciones adicionales.
     ? response.etiquetas.filter(t => typeof t === 'string' && t.trim())
     : [];
   
-  const contenidoMarkdown = response.contenidoMarkdown?.trim() || '';
+  let contenidoMarkdown = response.contenidoMarkdown?.trim() || '';
   
   if (contenidoMarkdown.length < 500) {
     throw new Error('El contenido generado es demasiado corto');
   }
+  
+  // 8.5. Validar estructura de secciones obligatorias (FACTUAL)
+  const structureValidation = strictValidateAndAutocorrect(contenidoMarkdown, {
+    model: modelUsed,
+    allowAutocorrect: true
+  });
+  
+  if (structureValidation.shouldReject) {
+    console.error('[URLDraftGenerator] ❌ Estructura inválida:', structureValidation.rejectReason);
+    throw new Error(`Estructura de artículo inválida: ${structureValidation.rejectReason}`);
+  }
+  
+  // Si se autocorrigió, usar el contenido corregido
+  if (structureValidation.corrected && structureValidation.correctedContent) {
+    console.log('[URLDraftGenerator] ✅ Estructura autocorregida');
+    contenidoMarkdown = structureValidation.correctedContent;
+  }
+  
+  console.log(`[URLDraftGenerator] Validación estructura: ${structureValidation.valid ? '✅ OK' : '⚠️ Autocorregido'}`);
   
   // 9. Convertir Markdown a HTML
   const contenidoHtml = marked(contenidoMarkdown);

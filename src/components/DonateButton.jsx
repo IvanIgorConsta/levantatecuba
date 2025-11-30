@@ -108,7 +108,7 @@ export default function DonateButton() {
       </div>
 
       {/* Animación sutil del CTA */}
-      <style jsx>{`
+      <style>{`
         @keyframes subtlePulse {
           0%,
           100% {
