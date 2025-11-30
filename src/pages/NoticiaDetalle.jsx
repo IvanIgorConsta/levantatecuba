@@ -65,8 +65,19 @@ export default function NoticiaDetalle() {
 
   useEffect(() => {
     fetch(`/api/news/${id}`)
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error('Noticia no encontrada');
+        }
+        return res.json();
+      })
       .then((data) => {
+        // Si no hay datos o no hay título, redirigir a 404
+        if (!data || !data.titulo) {
+          navigate('/404', { replace: true });
+          return;
+        }
+        
         const contenidoSanitizado = DOMPurify.sanitize(data.contenido, {
           ALLOWED_TAGS: ["p","strong","em","u","a","br","ul","ol","li","blockquote","h1","h2","h3","figure","figcaption","img","span"],
           ALLOWED_ATTR: ["href","target","rel","src","alt","title","class","style","loading"],
@@ -235,6 +246,10 @@ export default function NoticiaDetalle() {
             setRelacionadas(normalized);
           })
           .catch(() => setRelacionadas([]));
+      })
+      .catch((err) => {
+        console.error('Error cargando noticia:', err);
+        navigate('/404', { replace: true });
       });
   }, [id]);
 
