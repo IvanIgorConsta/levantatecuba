@@ -2,7 +2,131 @@
 /**
  * Constructor de prompts mejorados para generación de contenidos
  * Implementa estructuras diferenciadas para FACTUAL vs OPINIÓN
+ * 
+ * IMPORTANTE: Este módulo define la estructura OBLIGATORIA para todos los artículos.
+ * Cualquier generador (redactor.js, urlDraftGenerator.js, etc.) DEBE usar estas funciones.
  */
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SECCIONES OBLIGATORIAS PARA ARTÍCULOS FACTUALES (STRICT MODE)
+// TODAS estas secciones DEBEN aparecer EXACTAMENTE con estos títulos
+// El orden es CRÍTICO: 1→2→3→4→5
+// ═══════════════════════════════════════════════════════════════════════════════
+const REQUIRED_SECTIONS_FACTUAL = [
+  { id: 'contexto', heading: '## Contexto del hecho', required: true, order: 1 },
+  { id: 'causa', heading: '## Causa y consecuencia', required: true, order: 2 },
+  { id: 'citas', heading: '## Citas verificables', required: true, order: 3 }, // ← Ahora OBLIGATORIO
+  { id: 'importancia', heading: '## Por qué es importante', required: true, order: 4 },
+  { id: 'datos', heading: '## Datos importantes', required: true, order: 5 }, // ← Ahora OBLIGATORIO
+];
+
+// Regex patterns para detectar cada sección (case-insensitive)
+const SECTION_PATTERNS = {
+  contexto: /^##\s*contexto\s+del\s+hecho/im,
+  causa: /^##\s*causa\s+y\s+consecuencia/im,
+  citas: /^##\s*citas\s+verificables/im,
+  importancia: /^##\s*por\s+qu[eé]\s+(es\s+)?importante/im,
+  datos: /^##\s*datos\s+importantes/im,
+};
+
+/**
+ * Genera las instrucciones de estructura obligatoria para el prompt
+ * @param {string} mode - 'factual' o 'opinion'
+ * @returns {string} Instrucciones de estructura
+ */
+function getStructureInstructions(mode = 'factual') {
+  if (mode === 'factual') {
+    return `
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  🚨 ESTRUCTURA OBLIGATORIA - PRIORIDAD MÁXIMA (contenidoMarkdown) 🚨         ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+⛔ ADVERTENCIA: Si no cumples con esta estructura EXACTA, el artículo será RECHAZADO.
+⛔ La estructura es MÁS IMPORTANTE que la creatividad o el estilo.
+⛔ NUNCA omitas una sección. NUNCA cambies los títulos.
+
+El campo "contenidoMarkdown" DEBE contener EXACTAMENTE estas 5 secciones EN ESTE ORDEN:
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ SECCIÓN 1: ## Contexto del hecho                                            │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ - 2-3 párrafos explicando el contexto, antecedentes y situación actual      │
+│ - Responde: ¿Qué pasó? ¿Dónde? ¿Cuándo? ¿Quiénes están involucrados?        │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ SECCIÓN 2: ## Causa y consecuencia                                          │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ - 2-3 párrafos explicando qué provocó el hecho y sus efectos                │
+│ - Responde: ¿Por qué ocurrió? ¿Qué pasará después?                          │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ SECCIÓN 3: ## Citas verificables                                            │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ - 1-2 párrafos con citas textuales de fuentes, con atribución clara         │
+│ - Si NO hay citas: "No se dispone de declaraciones oficiales verificables   │
+│   al momento de esta publicación."                                          │
+│ - ⚠️ NUNCA omitas esta sección, siempre incluye aunque sea el placeholder   │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ SECCIÓN 4: ## Por qué es importante                                         │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ - 2-3 párrafos explicando la relevancia para el lector                      │
+│ - Impacto social, económico o político                                      │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ SECCIÓN 5: ## Datos importantes                                             │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ - Lista de bullets con datos clave: fechas, cifras, lugares, responsables   │
+│ - Formato: "- El evento ocurrió el 15 de marzo de 2024"                     │
+│ - Si NO hay datos específicos: "- No se han divulgado datos oficiales       │
+│   adicionales al momento de esta publicación."                              │
+│ - ⚠️ NUNCA omitas esta sección, siempre incluye aunque sea el placeholder   │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  ⛔ REGLAS ESTRICTAS - VIOLACIÓN = RECHAZO AUTOMÁTICO ⛔                     ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║ 1. Los 5 encabezados DEBEN aparecer EXACTAMENTE como se muestran arriba     ║
+║ 2. El ORDEN debe ser: Contexto → Causa → Citas → Importancia → Datos        ║
+║ 3. NO uses variantes como "Datos duros", "Contexto", "Importancia"          ║
+║ 4. NO generes contenido sin secciones (bloque único)                        ║
+║ 5. Cada sección debe tener contenido sustancial (mínimo 100 caracteres)     ║
+║ 6. NO añadas secciones extra como "## Cierre" o "## Conclusión"             ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+`;
+  }
+  
+  // Para opinión, estructura diferente
+  return `
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ESTRUCTURA OBLIGATORIA DEL CONTENIDO (contenidoMarkdown)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+El campo "contenidoMarkdown" DEBE contener estas secciones:
+
+## Declaración inicial
+[1-2 párrafos con afirmación o pregunta impactante que plantee la tesis]
+
+## Nuestra postura
+[2-3 párrafos con la posición clara del editorial y contexto]
+
+## Los hechos que respaldan
+[3-4 párrafos con argumentos basados en datos verificables]
+
+## Por qué debe importarnos
+[1-2 párrafos sobre el impacto en la vida cotidiana]
+
+## Lo que nadie dice
+[2-3 párrafos sobre contradicciones, efectos ocultos, hipocresías]
+
+## Reflexión final
+[1-2 párrafos con pregunta poderosa o frase memorable]
+`;
+}
 
 /**
  * Extrae entidades clave del topic usando NER simplificado
@@ -173,30 +297,13 @@ MODO: FACTUAL (Noticia Objetiva)
 
 ESTILO: Objetivo, datos duros, sin opiniones del medio. Neutralidad estricta.
 
-ESTRUCTURA OBLIGATORIA:
-
-1) **Titular**: Contundente, factual, optimizado SEO (60-70 caracteres)
-2) **Lead (bajada)**: Responde ¿Qué pasó? ¿Dónde? ¿Quién? (2-3 líneas)
-3) **Desarrollo** (mínimo 4-6 párrafos):
-   - Contexto del hecho
-   - Causa y consecuencia
-   - Citas verificables si existen (con atribución clara)
-   - Fechas, números, locaciones verificables
-4) **Sección "Por qué es importante"** (1-2 párrafos):
-   - Explica relevancia para el lector
-   - Impacto social/económico/político
-5) **Datos importantes** (única sección de datos):
-   - SIEMPRE usa este título exacto: "Datos importantes"
-   - NUNCA uses "Datos duros", "Datos destacados" u otras variantes
-   - Si no hay datos relevantes que listar, OMITE esta sección por completo
-   - Formato permitido (elige UNO):
-     a) Frases corridas: "Fecha del cambio: 2 de noviembre de 2025." → ✅ VÁLIDO
-     b) Bullets sin dos puntos: "• Cambio de hora se atrasa una hora" → ✅ VÁLIDO
-        PROHIBIDO en bullets: "• Cambio de hora: Se atrasa una hora" → ❌
-   - Lista solo datos objetivos disponibles: fechas, plazos, lugares, cifras, impacto, responsables
-   - NO fuerces campos que no aplican
-   - Elimina duplicados y contradicciones
-6) **Cierre**: Estado actual y próximos pasos esperados
+CAMPOS JSON OBLIGATORIOS:
+1) **titulo**: Contundente, factual, optimizado SEO (60-70 caracteres)
+2) **bajada**: Responde ¿Qué pasó? ¿Dónde? ¿Quién? (2-3 líneas)
+3) **contenidoMarkdown**: VER ESTRUCTURA OBLIGATORIA ABAJO
+4) **categoria**: Una de las categorías permitidas
+5) **etiquetas**: Array de 3-5 tags relevantes
+${getStructureInstructions('factual')}
 
 PROHIBIDO:
 - Opiniones del medio
@@ -332,7 +439,7 @@ function buildEnhancedInput(topic, mode, config, formatStyle = 'standard') {
       medio: f.medio || 'Fuente desconocida',
       titulo: f.titulo || '',
       fecha: date,
-      content_snippet: f.snippet || topic.resumenBreve || '',
+      content_snippet: (f.snippet || topic.resumenBreve || '').substring(0, 500), // Truncate to avoid excessive tokens
       autoridad_score: f.trustScore || 75
     };
   });
@@ -479,10 +586,186 @@ function validateContentQuality(response, mode) {
   };
 }
 
+/**
+ * Valida que el contenido tenga las secciones obligatorias (versión estricta)
+ * @param {string} content - contenidoMarkdown
+ * @param {string} mode - 'factual' o 'opinion'
+ * @returns {{ valid: boolean, missingSections: string[], presentSections: string[], warnings: string[] }}
+ */
+function validateStructure(content, mode = 'factual') {
+  const missingSections = [];
+  const presentSections = [];
+  const warnings = [];
+  
+  if (!content || typeof content !== 'string') {
+    return { 
+      valid: false, 
+      missingSections: REQUIRED_SECTIONS_FACTUAL.map(s => s.id), 
+      presentSections: [],
+      warnings: ['contenido vacío'] 
+    };
+  }
+  
+  if (mode === 'factual') {
+    // Usar los regex patterns estrictos para validar cada sección
+    for (const section of REQUIRED_SECTIONS_FACTUAL) {
+      const pattern = SECTION_PATTERNS[section.id];
+      if (pattern && pattern.test(content)) {
+        presentSections.push(section.id);
+      } else {
+        missingSections.push(section.id);
+      }
+    }
+    
+    // Verificar que no sea un bloque único (debe tener al menos 4 encabezados ##)
+    const headingCount = (content.match(/^##\s+/gm) || []).length;
+    if (headingCount < 4) {
+      warnings.push(`Solo ${headingCount} secciones H2 detectadas (mínimo requerido: 5)`);
+    }
+    
+    // Advertir si tiene secciones extra no esperadas
+    const allH2 = content.match(/^##\s+.+$/gm) || [];
+    const extraSections = allH2.filter(h2 => {
+      const h2Lower = h2.toLowerCase();
+      return !Object.values(SECTION_PATTERNS).some(p => p.test(h2));
+    });
+    if (extraSections.length > 0) {
+      warnings.push(`Secciones extra detectadas: ${extraSections.join(', ')}`);
+    }
+  }
+  
+  return {
+    valid: missingSections.length === 0,
+    missingSections,
+    presentSections,
+    warnings
+  };
+}
+
+/**
+ * VALIDACIÓN ESTRICTA CON AUTOCORRECCIÓN
+ * Valida la estructura y opcionalmente intenta corregir secciones faltantes
+ * @param {string} content - contenidoMarkdown
+ * @param {Object} options - { model: string, allowAutocorrect: boolean }
+ * @returns {{ 
+ *   valid: boolean, 
+ *   corrected: boolean,
+ *   correctedContent: string | null,
+ *   missingSections: string[], 
+ *   issues: string[],
+ *   shouldReject: boolean,
+ *   rejectReason: string | null
+ * }}
+ */
+function strictValidateAndAutocorrect(content, options = {}) {
+  const { model = 'unknown', allowAutocorrect = true } = options;
+  const issues = [];
+  let correctedContent = null;
+  let corrected = false;
+  let shouldReject = false;
+  let rejectReason = null;
+  
+  // Validar estructura con la función estándar
+  const validation = validateStructure(content, 'factual');
+  
+  // Log detallado
+  console.log(`[PromptBuilder:StrictValidate] Modelo: ${model}`);
+  console.log(`[PromptBuilder:StrictValidate] Secciones presentes: [${validation.presentSections.join(', ')}]`);
+  console.log(`[PromptBuilder:StrictValidate] Secciones faltantes: [${validation.missingSections.join(', ')}]`);
+  
+  if (validation.valid) {
+    // Todo OK, no hay nada que hacer
+    return {
+      valid: true,
+      corrected: false,
+      correctedContent: null,
+      missingSections: [],
+      issues: validation.warnings,
+      shouldReject: false,
+      rejectReason: null
+    };
+  }
+  
+  // Hay secciones faltantes
+  const missingCount = validation.missingSections.length;
+  issues.push(`Faltan ${missingCount} secciones obligatorias: ${validation.missingSections.join(', ')}`);
+  
+  // Si faltan más de 2 secciones, rechazar sin autocorrección
+  if (missingCount > 2) {
+    shouldReject = true;
+    rejectReason = `Demasiadas secciones faltantes (${missingCount}/5). El contenido no cumple la estructura obligatoria. Modelo: ${model}`;
+    console.error(`[PromptBuilder:StrictValidate] ❌ RECHAZO: ${rejectReason}`);
+    
+    return {
+      valid: false,
+      corrected: false,
+      correctedContent: null,
+      missingSections: validation.missingSections,
+      issues,
+      shouldReject: true,
+      rejectReason
+    };
+  }
+  
+  // Intentar autocorrección si está habilitado y faltan ≤ 2 secciones
+  if (allowAutocorrect && missingCount <= 2) {
+    console.log(`[PromptBuilder:StrictValidate] ⚠️ Intentando autocorrección para: ${validation.missingSections.join(', ')}`);
+    
+    const placeholders = {
+      contexto: '\n\n## Contexto del hecho\n\nLa información de contexto no está disponible al momento de esta publicación. Se actualizará cuando se obtengan más detalles.\n',
+      causa: '\n\n## Causa y consecuencia\n\nAún no se han determinado las causas exactas de este suceso ni sus posibles consecuencias a mediano plazo.\n',
+      citas: '\n\n## Citas verificables\n\nNo se dispone de declaraciones oficiales verificables al momento de esta publicación.\n',
+      importancia: '\n\n## Por qué es importante\n\nEste hecho representa un evento significativo cuyas implicaciones aún están siendo evaluadas por analistas y observadores.\n',
+      datos: '\n\n## Datos importantes\n\n- No se han divulgado datos oficiales adicionales al momento de esta publicación.\n'
+    };
+    
+    correctedContent = content;
+    
+    // Añadir secciones faltantes al final del contenido
+    for (const sectionId of validation.missingSections) {
+      if (placeholders[sectionId]) {
+        correctedContent += placeholders[sectionId];
+        issues.push(`Sección "${sectionId}" añadida con placeholder`);
+      }
+    }
+    
+    corrected = true;
+    console.log(`[PromptBuilder:StrictValidate] ✅ Autocorrección aplicada. ${missingCount} secciones añadidas con placeholders.`);
+  } else if (!allowAutocorrect) {
+    shouldReject = true;
+    rejectReason = `Estructura incompleta y autocorrección deshabilitada. Faltan: ${validation.missingSections.join(', ')}. Modelo: ${model}`;
+  }
+  
+  return {
+    valid: corrected, // Es válido si se pudo corregir
+    corrected,
+    correctedContent,
+    missingSections: validation.missingSections,
+    issues,
+    shouldReject,
+    rejectReason
+  };
+}
+
+/**
+ * Genera instrucciones de estructura para usar en prompts de usuario
+ * Útil para urlDraftGenerator y otros generadores
+ * @param {string} mode - 'factual' o 'opinion'
+ * @returns {string}
+ */
+function getStructureInstructionsForUserPrompt(mode = 'factual') {
+  return getStructureInstructions(mode);
+}
+
 module.exports = {
   extractEntities,
   buildSystemPrompt,
   buildEnhancedInput,
   validateContentQuality,
-  buildLecturaVivaInstructions
+  validateStructure,
+  strictValidateAndAutocorrect, // ← Nueva función de validación estricta con autocorrección
+  getStructureInstructionsForUserPrompt,
+  buildLecturaVivaInstructions,
+  REQUIRED_SECTIONS_FACTUAL,
+  SECTION_PATTERNS // ← Exportar patterns para uso externo
 };

@@ -443,10 +443,10 @@ export default function AdminReports() {
   };
 
   return (
-    <main className="min-h-screen bg-zinc-950 text-white">
+    <main className="min-h-screen bg-[#0d0d0d] text-white">
       {/* Header con estadísticas */}
-      <div className="border-b border-zinc-800 bg-black/95 backdrop-blur sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="border-b border-zinc-800 bg-[#0d0d0d]/95 backdrop-blur sticky top-0 z-10">
+        <div className="max-w-[900px] mx-auto px-4 sm:px-6">
           <div className="py-4">
             <div className="flex items-center justify-between">
               <div>
@@ -599,7 +599,7 @@ export default function AdminReports() {
       )}
 
       {/* Lista de denuncias */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="max-w-[900px] mx-auto px-4 sm:px-6 py-6">
         {loading ? (
           <div className="flex justify-center items-center h-64">
             <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-red-500"></div>
@@ -727,7 +727,7 @@ export default function AdminReports() {
                     {!d.aprobada && (
                       <button
                         onClick={() => aprobarDenuncia(d._id)}
-                        className="flex items-center gap-2 px-3 py-1.5 bg-green-500 hover:bg-green-600 text-black text-sm font-medium rounded-lg transition"
+                        className="flex items-center gap-2 px-3 py-1.5 bg-green-600/20 hover:bg-green-600/30 text-green-400 text-sm font-medium rounded-lg border border-green-500/30 transition"
                       >
                         <CheckCircle2 className="w-4 h-4" />
                         Aprobar
@@ -738,8 +738,8 @@ export default function AdminReports() {
                       onClick={() => marcarDestacada(d._id)}
                       className={`flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-lg transition ${
                         d.destacada
-                          ? 'bg-purple-500 hover:bg-purple-600 text-black'
-                          : 'bg-zinc-800 hover:bg-zinc-700 text-white'
+                          ? 'bg-purple-500 hover:bg-purple-600 text-white'
+                          : 'bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30'
                       }`}
                     >
                       {d.destacada ? (
@@ -760,7 +760,7 @@ export default function AdminReports() {
                         visible: true,
                         onConfirm: () => eliminarDenuncia(d._id),
                       })}
-                      className="flex items-center gap-2 px-3 py-1.5 bg-zinc-800 hover:bg-red-500/20 text-red-400 hover:text-red-300 text-sm font-medium rounded-lg transition"
+                      className="flex items-center gap-2 px-3 py-1.5 bg-red-600/20 hover:bg-red-600/30 text-red-400 hover:text-red-300 text-sm font-medium rounded-lg border border-red-500/30 transition"
                     >
                       <Trash2 className="w-4 h-4" />
                       Eliminar

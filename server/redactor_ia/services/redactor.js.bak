@@ -9,7 +9,7 @@ const { classifyCategory } = require('./categoryClassifier');
 const { saveBase64Png } = require('./mediaStore');
 const { generateWithProvider } = require('./imageProvider');
 const { logCost, calculateLLMCost, calculateImageCost } = require('./statsService');
-const { buildSystemPrompt, buildEnhancedInput, validateContentQuality, validateStructure, strictValidateAndAutocorrect } = require('./promptBuilder');
+const { buildSystemPrompt, buildEnhancedInput, validateContentQuality } = require('./promptBuilder');
 const { deriveCategory } = require('../utils/categoryDeriver');
 const { ImageThemeEngine } = require('./imageThemeEngine');
 const { buildPrompt } = require('./promptTemplates');
@@ -453,31 +453,6 @@ Amplía el artículo a mínimo 3000 caracteres manteniendo:
       console.warn('[Redactor] Advertencias de calidad:', validation.warnings);
     }
     
-    // PASO 4: Validar estructura de secciones obligatorias (solo FACTUAL)
-    if (mode === 'factual') {
-      const structureValidation = strictValidateAndAutocorrect(norm.contenidoMarkdown, {
-        model: modelUsed,
-        allowAutocorrect: true
-      });
-      
-      if (structureValidation.shouldReject) {
-        console.error('[Redactor] ❌ Estructura inválida:', structureValidation.rejectReason);
-        throw new Error(`Estructura de artículo inválida: ${structureValidation.rejectReason}`);
-      }
-      
-      // Si se autocorrigió, usar el contenido corregido
-      if (structureValidation.corrected && structureValidation.correctedContent) {
-        console.log('[Redactor] ✅ Estructura autocorregida, secciones añadidas:', structureValidation.missingSections);
-        norm.contenidoMarkdown = structureValidation.correctedContent;
-      }
-      
-      if (structureValidation.issues.length > 0) {
-        console.warn('[Redactor] ⚠️ Advertencias de estructura:', structureValidation.issues);
-      }
-      
-      console.log(`[Redactor] Validación estructura FACTUAL: ${structureValidation.valid ? '✅ OK' : '⚠️ Autocorregido'}`);
-    }
-    
     // Calcular y registrar costo del LLM con tokens reales
     const llmCost = calculateLLMCost({ 
       model: modelUsed, 
@@ -788,46 +763,6 @@ Amplía el artículo a mínimo 3000 caracteres manteniendo:
   });
 
   await draft.save();
-
-  // Mover imagen del directorio temporal (topicId) al directorio final (draftId)
-  if (imagePersisted && coverImageUrl && coverImageUrl.includes(tempDraftId)) {
-    try {
-      const oldDir = path.join(process.cwd(), 'public', 'media', 'news', tempDraftId);
-      const newDir = path.join(process.cwd(), 'public', 'media', 'news', draft._id.toString());
-      
-      // Verificar si el directorio temporal existe
-      const oldDirExists = await fs.access(oldDir).then(() => true).catch(() => false);
-      
-      if (oldDirExists) {
-        // Crear nuevo directorio y copiar archivos
-        await fs.mkdir(newDir, { recursive: true });
-        const files = await fs.readdir(oldDir);
-        
-        for (const file of files) {
-          await fs.copyFile(path.join(oldDir, file), path.join(newDir, file));
-        }
-        
-        // Actualizar rutas en el borrador
-        const newCoverUrl = coverImageUrl.replace(tempDraftId, draft._id.toString());
-        draft.coverImageUrl = newCoverUrl;
-        draft.coverUrl = draft.coverUrl ? draft.coverUrl.replace(tempDraftId, draft._id.toString()) : newCoverUrl;
-        draft.coverFallbackUrl = draft.coverFallbackUrl ? draft.coverFallbackUrl.replace(tempDraftId, draft._id.toString()) : '';
-        if (draft.generatedImages?.principal) {
-          draft.generatedImages.principal = draft.generatedImages.principal.replace(tempDraftId, draft._id.toString());
-        }
-        
-        await draft.save();
-        
-        // Eliminar directorio temporal
-        await fs.rm(oldDir, { recursive: true, force: true });
-        
-        console.log(`[Redactor] ✅ Imagen movida de ${tempDraftId} a ${draft._id}`);
-      }
-    } catch (moveError) {
-      console.warn(`[Redactor] ⚠️ No se pudo mover imagen: ${moveError.message}`);
-      // No fallar la generación por esto
-    }
-  }
 
   console.log(`[Redactor] Borrador creado: ${draft._id} (${draft.titulo}) mode=${draft.mode} reviewStatus=${draft.reviewStatus}`);
   return draft;

@@ -127,7 +127,7 @@ body {
 @layer components {
   /* Admin root and aliases */
   .admin-ui .sidebar {
-    @apply bg-zinc-950 text-white border-r border-zinc-800/60 w-64 min-h-screen py-6 px-3 shadow-xl;
+    @apply bg-[#0d0d0d] text-white border-r border-zinc-800/60 w-64 min-h-screen py-6 px-3 shadow-xl;
   }
 
   /* Aliases for unified dark panels */

@@ -427,11 +427,36 @@ async function runFacebookAutoPublisher() {
     console.log(`${logPrefix} 📰 Candidato encontrado: "${candidate.titulo}" (ID: ${candidate._id})`);
     console.log(`${logPrefix} 📅 Publicada en sitio: ${candidate.publishedAt}`);
     
+    // 5.5. LOCK ATÓMICO: Marcar como "sharing" para evitar duplicados por race condition
+    const lockResult = await News.findOneAndUpdate(
+      { 
+        _id: candidate._id,
+        // Solo actualizar si NO está siendo publicada ni ya publicada
+        facebook_status: { $nin: ['sharing', 'published'] },
+        publishedToFacebook: { $ne: true }
+      },
+      { 
+        facebook_status: 'sharing',
+        facebook_attempt_count: (candidate.facebook_attempt_count || 0) + 1
+      },
+      { new: true }
+    );
+    
+    if (!lockResult) {
+      console.warn(`${logPrefix} ⚠️ Noticia ${candidate._id} ya está siendo publicada o fue publicada (race condition evitada)`);
+      return {
+        success: false,
+        reason: 'already_publishing',
+        message: 'Noticia ya está siendo publicada por otro proceso',
+        newsId: candidate._id
+      };
+    }
+    
     // 6. Publicar en Facebook
     try {
       console.log(`${logPrefix} 🔄 Publicando en Facebook...`);
       
-      const result = await publishNewsToFacebook(candidate, {
+      const result = await publishNewsToFacebook(lockResult, {
         autoPublish: true // Flag para indicar que es automático
       });
       
@@ -468,16 +493,18 @@ async function runFacebookAutoPublisher() {
     } catch (publishError) {
       console.error(`${logPrefix} ❌ Error al publicar en Facebook:`, publishError.message);
       
-      // No marcar como publicado si falla
-      // Registrar error en la noticia
+      // Liberar el lock y registrar error
+      // Si es ALREADY_PUBLISHED, no cambiar el estado (ya está publicada)
+      const isAlreadyPublished = publishError.cause?.code === 'ALREADY_PUBLISHED';
+      
       await News.findByIdAndUpdate(candidate._id, {
-        facebook_last_error: publishError.message,
-        $inc: { facebook_attempt_count: 1 }
+        facebook_status: isAlreadyPublished ? 'published' : 'error',
+        facebook_last_error: publishError.message
       });
       
       return {
         success: false,
-        reason: 'publish_error',
+        reason: isAlreadyPublished ? 'already_published' : 'publish_error',
         message: `Error al publicar: ${publishError.message}`,
         newsId: candidate._id,
         error: publishError.message

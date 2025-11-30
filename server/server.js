@@ -121,6 +121,8 @@ const baseOrigins = [
   // Desarrollo local
   'http://localhost:5173',
   'http://127.0.0.1:5173',
+  'http://localhost:5174',
+  'http://127.0.0.1:5174',
   'http://localhost:4173',
   'http://127.0.0.1:4173',
   'http://localhost:3000',
@@ -134,10 +136,8 @@ const allowList = new Set(
   [...baseOrigins, ...extraOrigins].filter(Boolean)
 );
 
-// Trust proxy si estamos en producción (para cookies seguras)
-if (process.env.NODE_ENV === 'production') {
-  app.set('trust proxy', 1);
-}
+// Trust proxy para manejar X-Forwarded-For correctamente (nginx, proxies de IDE, etc.)
+app.set('trust proxy', 1);
 
 const corsOptions = {
   origin: function (origin, callback) {
@@ -149,6 +149,14 @@ const corsOptions = {
     // Verificar si está en la lista de orígenes permitidos
     if (allowList.has(origin)) {
       return callback(null, true);
+    }
+
+    // Permitir cualquier puerto en localhost/127.0.0.1 en desarrollo (para proxies de IDE)
+    if (process.env.NODE_ENV !== 'production') {
+      const localhostPattern = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
+      if (localhostPattern.test(origin)) {
+        return callback(null, true);
+      }
     }
 
     // Origen no permitido - log y rechazar
@@ -226,13 +234,15 @@ const passwordLimiter = rateLimit({
 // 8.1) Rate limiting global (protección contra abuso)
 const globalLimiter = rateLimit({
   windowMs: 1 * 60 * 1000, // 1 minuto
-  max: 100, // 100 requests por IP/minuto
+  max: process.env.NODE_ENV === 'production' ? 100 : 500, // Más permisivo en desarrollo
   standardHeaders: true,
   legacyHeaders: false,
   message: 'Demasiadas solicitudes desde esta IP, por favor intenta más tarde',
   skip: (req) => {
-    // No aplicar rate limit a healthcheck
-    return req.path === '/healthz';
+    // No aplicar rate limit a healthcheck ni a localhost en desarrollo
+    if (req.path === '/healthz') return true;
+    if (process.env.NODE_ENV !== 'production' && req.ip === '127.0.0.1') return true;
+    return false;
   }
 });
 

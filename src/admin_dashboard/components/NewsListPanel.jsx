@@ -202,7 +202,7 @@ export default function NewsListPanel({
       </div>
 
       {/* Selector de estado (segmented control) */}
-      <div className="mb-4 sticky top-0 z-30 bg-zinc-950/95 backdrop-blur-sm py-3 -mx-3 sm:-mx-4 px-3 sm:px-4">
+      <div className="mb-4 sticky top-0 z-30 bg-[#0d0d0d]/95 backdrop-blur-sm py-3 -mx-3 sm:-mx-4 px-3 sm:px-4">
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
           <div className="flex items-center gap-1 bg-zinc-900 p-1 rounded-lg border border-zinc-700 w-full sm:w-fit overflow-x-auto no-scrollbar">
             {[

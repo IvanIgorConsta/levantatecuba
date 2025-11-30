@@ -89,7 +89,7 @@ export default function PuenteLibreHero() {
               alt="Puente digital de datos conectando personas y ayuda"
               className="h-full w-full object-cover select-none pointer-events-none"
               loading="eager"
-              fetchPriority="high"
+              fetchpriority="high"
             />
           </picture>
 
