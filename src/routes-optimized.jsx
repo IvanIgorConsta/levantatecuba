@@ -14,12 +14,12 @@ import PrivateRoute from "./components/PrivateRoute";
 // LAZY LOADING - Páginas públicas
 // ========================================================================
 const About = lazy(() => import("./pages/About"));
-const Suscribete = lazy(() => import("./pages/Suscribete"));
+// Suscribete eliminado
 const Denuncias = lazy(() => import("./pages/Denuncias"));
 const Noticias = lazy(() => import("./pages/Noticias"));
 const NoticiaDetalle = lazy(() => import("./pages/NoticiaDetalle"));
-const Romper = lazy(() => import("./pages/Romper"));
-const Contacto = lazy(() => import("./pages/Contacto"));
+const HacerDenuncia = lazy(() => import("./pages/HacerDenuncia"));
+// Contacto eliminado
 const Donar = lazy(() => import("./pages/Donar"));
 const DonateSuccess = lazy(() => import("./pages/DonateSuccess"));
 const DonateCancel = lazy(() => import("./pages/DonateCancel"));
@@ -82,11 +82,11 @@ export default function AppRoutes() {
         
         {/* Páginas públicas - Lazy load */}
         <Route path="/about" element={<About />} />
-        <Route path="/suscribete" element={<Suscribete />} />
+        {/* /suscribete eliminado */}
         <Route path="/denuncias" element={<Denuncias />} />
         <Route path="/noticias" element={<Noticias />} />
         <Route path="/noticias/:id" element={<NoticiaDetalle />} />
-        <Route path="/romper" element={<Romper />} />
+        <Route path="/denuncias/nueva" element={<HacerDenuncia />} />
         
         {/* Rutas 410 - Contenido retirado permanentemente */}
         <Route 
@@ -118,7 +118,7 @@ export default function AppRoutes() {
         )}
         
         {/* Contacto y Donaciones */}
-        <Route path="/contacto" element={<Contacto />} />
+        {/* /contacto eliminado */}
         <Route path="/donar" element={<Donar />} />
         <Route path="/donar/success" element={<DonateSuccess />} />
         <Route path="/donar/cancel" element={<DonateCancel />} />

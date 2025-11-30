@@ -17,10 +17,22 @@ const RESOLVED = {
 };
 let API_BASE = pick(RESOLVED.fromEnv, RESOLVED.fromRuntime, RESOLVED.fromWindow);
 if (!API_BASE) {
-  // Fallback definitivo para tu red local:
-  API_BASE = 'http://192.168.1.137:5000/api/shopify';
+  // Fallback: ruta relativa que funciona tanto en dev como en producción
+  API_BASE = '/api/shopify';
 }
+// Limpiar trailing slash y URLs locales que no funcionan en producción
 API_BASE = API_BASE.replace(/\/$/, '');
+// Si detectamos URL local en producción, usar ruta relativa
+if (typeof window !== 'undefined' && 
+    window.location.hostname !== 'localhost' && 
+    window.location.hostname !== '127.0.0.1' &&
+    !window.location.hostname.startsWith('192.168.')) {
+  // Estamos en producción, forzar ruta relativa si hay IP local
+  if (API_BASE.includes('192.168.') || API_BASE.includes('localhost') || API_BASE.includes('127.0.0.1')) {
+    console.warn('[Shopify FE] Detectada URL local en producción, usando ruta relativa');
+    API_BASE = '/api/shopify';
+  }
+}
 
 console.info('[Shopify FE] API_BASE sources:', RESOLVED);
 console.info('[Shopify FE] API_BASE resolved →', API_BASE);

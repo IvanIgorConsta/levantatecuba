@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import toast from "react-hot-toast";
 import useTrackPage from "../utils/useTrackPage";
 import DOMPurify from "dompurify";
@@ -25,7 +25,7 @@ import {
 import { FaPaperPlane } from "react-icons/fa";
 import PageHeader from "../components/PageHeader";
 
-export default function Romper() {
+export default function HacerDenuncia() {
   const { t } = useTranslation();
   useTrackPage();
   const navigate = useNavigate();
@@ -149,7 +149,7 @@ export default function Romper() {
     if (!isLoggedIn) {
       toast.error("❌ Debes iniciar sesión para hacer una denuncia.");
       setTimeout(() => {
-        navigate("/login?redirect=/romper");
+        navigate("/login?redirect=/denuncias/nueva");
       }, 1500);
       return;
     }
@@ -217,7 +217,12 @@ export default function Romper() {
     return (
       <main className="min-h-screen bg-transparent px-4 py-10 md:px-8">
         <div className="mx-auto max-w-2xl">
-          <BackLink to="/" label="Volver al inicio" />
+          <Link
+            to="/"
+            className="inline-flex items-center text-red-500 hover:text-red-400 transition-colors font-medium"
+          >
+            ← Volver al inicio
+          </Link>
           
           <div className="mt-12 rounded-2xl border border-red-500/20 bg-red-500/10 p-8 text-center">
             <Shield className="w-16 h-16 text-red-500 mx-auto mb-4" />
@@ -228,7 +233,7 @@ export default function Romper() {
               Debes iniciar sesión para poder enviar una denuncia
             </p>
             <button
-              onClick={() => navigate("/login?redirect=/romper")}
+              onClick={() => navigate("/login?redirect=/denuncias/nueva")}
               className="px-6 py-3 bg-red-500 hover:bg-red-600 text-white font-medium rounded-lg transition"
             >
               Iniciar Sesión

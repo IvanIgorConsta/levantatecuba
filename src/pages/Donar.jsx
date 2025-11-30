@@ -321,10 +321,10 @@ export default function Donar() {
               <span className="text-gray-600">•</span>
               
               <a 
-                href="/contacto" 
+                href="mailto:contacto@levantatecuba.com" 
                 className="text-gray-400 hover:text-white transition-colors"
               >
-                ¿Preguntas? Contáctanos
+                ¿Preguntas? Escríbenos
               </a>
             </div>
           </div>

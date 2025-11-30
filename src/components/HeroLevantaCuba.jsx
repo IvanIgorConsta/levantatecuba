@@ -126,7 +126,7 @@ export default function HeroLevantaCuba() {
           <h1 className="text-4xl font-extrabold tracking-tight md:text-6xl">LevántateCuba</h1>
           <p className="mt-3 text-base text-white/85 md:mt-4 md:text-lg">Voces libres. Verdad sin censura.</p>
           <a
-            href="/romper"
+            href="/denuncias/nueva"
             className="mt-6 inline-flex rounded-full bg-red-600 px-5 py-3 text-sm font-semibold text-white shadow-lg ring-1 ring-white/10 transition hover:bg-red-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 md:px-6 md:text-base"
           >
             Conoce cómo ayudamos

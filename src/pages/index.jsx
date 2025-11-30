@@ -75,7 +75,7 @@ export default function Home() {
           </p>
           <div className="mt-8">
             <Link
-              to="/romper"
+              to="/denuncias/nueva"
               className="w-full sm:w-auto max-w-xs bg-red-600 hover:bg-red-700 text-black font-bold text-lg py-3 px-6 sm:px-10 rounded-full shadow-lg transition-all duration-300"
             >
               📢 {t("cta.button")}

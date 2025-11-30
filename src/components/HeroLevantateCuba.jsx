@@ -32,7 +32,7 @@ export default function HeroLevantateCuba() {
       {/* CTA */}
       <div className="relative mt-6">
         <Link
-          to="/romper"
+          to="/denuncias/nueva"
           className="inline-flex items-center justify-center rounded-full bg-red-600 px-6 py-3 text-base font-semibold text-white transition-colors hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500/60"
           aria-label="Conoce cómo ayudamos"
         >

@@ -1,7 +1,7 @@
 // src/routes.jsx
 // ✅ OPTIMIZADO con Lazy Loading y Code Splitting
 import { lazy, Suspense } from "react";
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import { getStoreMode } from "./lib/runtimeConfig";
 
 // ========================================================================
@@ -15,19 +15,27 @@ import PrivateRoute from "./components/PrivateRoute";
 // LAZY LOADING - Páginas públicas
 // ========================================================================
 const About = lazy(() => import("./pages/About"));
-const Suscribete = lazy(() => import("./pages/Suscribete"));
+// Suscribete eliminado - usuarios redirigidos a /login
 const Denuncias = lazy(() => import("./pages/Denuncias"));
 const Noticias = lazy(() => import("./pages/Noticias"));
 const NoticiaDetalle = lazy(() => import("./pages/NoticiaDetalle"));
-const Romper = lazy(() => import("./pages/Romper"));
+const HacerDenuncia = lazy(() => import("./pages/HacerDenuncia"));
 const PuenteLibre = lazy(() => import("./pages/PuenteLibre"));
-const Contacto = lazy(() => import("./pages/Contacto"));
-const Donar = lazy(() => import("./pages/Donar"));
+// Contacto eliminado - usar mailto:contacto@levantatecuba.com
+// Donar eliminado - usar botón Apoyar con Stripe
 const DonateSuccess = lazy(() => import("./pages/DonateSuccess"));
 const DonateCancel = lazy(() => import("./pages/DonateCancel"));
 const Tienda = lazy(() => import("./pages/Tienda"));
 const ProductoDetalle = lazy(() => import("./pages/ProductoDetalle"));
 const Gone410 = lazy(() => import("./pages/Gone410"));
+
+// ========================================================================
+// LAZY LOADING - Páginas legales
+// ========================================================================
+const Privacidad = lazy(() => import("./pages/legal/Privacidad"));
+const Cookies = lazy(() => import("./pages/legal/Cookies"));
+const Terminos = lazy(() => import("./pages/legal/Terminos"));
+const ContenidoUsuarios = lazy(() => import("./pages/legal/ContenidoUsuarios"));
 
 // ========================================================================
 // LAZY LOADING - Autenticación
@@ -84,11 +92,11 @@ export default function AppRoutes() {
         
         {/* Páginas públicas - Lazy load */}
         <Route path="/about" element={<About />} />
-        <Route path="/suscribete" element={<Suscribete />} />
+        {/* /suscribete eliminado - redirigir a login */}
         <Route path="/denuncias" element={<Denuncias />} />
         <Route path="/noticias" element={<Noticias />} />
         <Route path="/noticias/:id" element={<NoticiaDetalle />} />
-        <Route path="/romper" element={<Romper />} />
+        <Route path="/denuncias/nueva" element={<HacerDenuncia />} />
         <Route path="/puente-libre" element={<PuenteLibre />} />
         
         {/* Rutas 410 - Contenido retirado permanentemente */}
@@ -120,11 +128,22 @@ export default function AppRoutes() {
           <Route path="/__env" element={<EnvDebug />} />
         )}
         
-        {/* Contacto y Donaciones */}
-        <Route path="/contacto" element={<Contacto />} />
-        <Route path="/donar" element={<Donar />} />
+        {/* Callbacks de Stripe */}
         <Route path="/donar/success" element={<DonateSuccess />} />
         <Route path="/donar/cancel" element={<DonateCancel />} />
+
+        {/* Páginas legales - Lazy load */}
+        <Route path="/legal/privacidad" element={<Privacidad />} />
+        <Route path="/legal/cookies" element={<Cookies />} />
+        <Route path="/legal/terminos" element={<Terminos />} />
+        <Route path="/legal/contenido-usuarios" element={<ContenidoUsuarios />} />
+
+        {/* Redirects para compatibilidad hacia atrás */}
+        <Route path="/romper" element={<Navigate to="/denuncias/nueva" replace />} />
+        <Route path="/denunciar" element={<Navigate to="/denuncias/nueva" replace />} />
+        <Route path="/donar" element={<Navigate to="/" replace />} />
+        <Route path="/suscribete" element={<Navigate to="/login" replace />} />
+        <Route path="/contacto" element={<Navigate to="/" replace />} />
 
         {/* Auth pública - Lazy load */}
         <Route path="/forgot-password" element={<ForgotPassword />} />

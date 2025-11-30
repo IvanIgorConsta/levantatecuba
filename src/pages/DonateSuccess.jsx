@@ -134,10 +134,10 @@ export default function DonateSuccess() {
         <div className="text-center text-sm text-gray-500">
           <p>Si tienes alguna pregunta sobre tu donación, </p>
           <p>
-            contáctanos en{' '}
-            <Link to="/contacto" className="text-red-400 hover:text-red-300 underline">
-              nuestra página de contacto
-            </Link>
+            escríbenos a{' '}
+            <a href="mailto:contacto@levantatecuba.com" className="text-red-400 hover:text-red-300 underline">
+              contacto@levantatecuba.com
+            </a>
           </p>
         </div>
       </div>

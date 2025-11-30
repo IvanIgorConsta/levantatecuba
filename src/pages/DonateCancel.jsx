@@ -130,16 +130,16 @@ export default function DonateCancel() {
             </p>
             <div className="flex flex-wrap gap-3 justify-center">
               <Link
-                to="/romper"
+                to="/denuncias/nueva"
                 className="px-4 py-2 bg-zinc-800/50 hover:bg-zinc-700/50 text-gray-300 rounded-lg text-sm transition-all"
               >
                 📢 Hacer una denuncia
               </Link>
               <Link
-                to="/suscribete"
+                to="/noticias"
                 className="px-4 py-2 bg-zinc-800/50 hover:bg-zinc-700/50 text-gray-300 rounded-lg text-sm transition-all"
               >
-                📧 Suscribirte al boletín
+                📰 Ver noticias
               </Link>
               <button
                 onClick={() => {
@@ -165,10 +165,9 @@ export default function DonateCancel() {
         <div className="text-center text-sm text-gray-500">
           <p>¿Problemas con el proceso de donación?</p>
           <p>
-            <Link to="/contacto" className="text-red-400 hover:text-red-300 underline">
-              Contáctanos
-            </Link>
-            {' '}y te ayudaremos.
+            <a href="mailto:contacto@levantatecuba.com" className="text-red-400 hover:text-red-300 underline">
+              contacto@levantatecuba.com
+            </a>
           </p>
         </div>
       </div>

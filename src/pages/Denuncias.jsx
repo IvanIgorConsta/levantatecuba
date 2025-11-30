@@ -620,7 +620,7 @@ export default function Denuncias() {
         bannerTitle="Tu voz importa"
         bannerText="Haz tu denuncia de forma segura y anónima si lo deseas."
         ctaLabel="Hacer denuncia"
-        ctaHref={isLoggedIn ? "/romper" : "/login?redirect=/romper"}
+        ctaHref={isLoggedIn ? "/denuncias/nueva" : "/login?redirect=/denuncias/nueva"}
         ctaIcon={TrendingUp}
       />
 
@@ -657,7 +657,7 @@ export default function Denuncias() {
               Sé el primero en alzar tu voz contra la injusticia
             </p>
             <a
-              href={isLoggedIn ? "/romper" : "/login?redirect=/romper"}
+              href={isLoggedIn ? "/denuncias/nueva" : "/login?redirect=/denuncias/nueva"}
               className="inline-flex items-center gap-2 px-6 py-3 bg-red-500 hover:bg-red-600 text-white font-medium rounded-lg transition"
             >
               <TrendingUp className="w-4 h-4" />
