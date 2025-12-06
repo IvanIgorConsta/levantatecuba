@@ -297,7 +297,7 @@ router.get("/sitemap.xml", async (req, res) => {
     const urls = noticias.map((n) => {
       return `
         <url>
-          <loc>https://levantatecuba.com/noticias/${n._id}</loc>
+          <loc>https://levantatecuba.com/noticias/${n.slug || n._id}</loc>
           <lastmod>${new Date(n.updatedAt || n.createdAt).toISOString()}</lastmod>
           <changefreq>weekly</changefreq>
           <priority>0.8</priority>
@@ -337,10 +337,11 @@ router.get("/sitemap.xml", async (req, res) => {
   }
 });
 
-// ✅ Obtener noticia individual
-router.get("/:id", async (req, res) => {
+// ✅ Obtener noticia individual (acepta slug o ID)
+router.get("/:slugOrId", async (req, res) => {
   try {
-    const noticia = await News.findById(req.params.id);
+    const { slugOrId } = req.params;
+    const noticia = await News.findBySlugOrId(slugOrId);
     if (!noticia) return res.status(404).json({ error: "Noticia no encontrada" });
     
     // Si la noticia está programada, solo admins pueden verla

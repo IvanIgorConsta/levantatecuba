@@ -140,16 +140,18 @@ async function generateFacebookRedCover(imageBuffer, newsData = {}, newsId = nul
       </svg>`
     );
     
-    // 6. Crear marca de agua discreta (posicionada encima del banner)
+    // 6. Crear marca de agua visible en esquina derecha (posicionada encima del banner)
     const watermarkY = bannerY - 15; // 15px encima del banner
     const watermark = Buffer.from(
       `<svg width="${canvasSize}" height="${canvasSize}">
         <text
           x="${canvasSize - 20}" y="${watermarkY}"
           text-anchor="end"
-          font-size="16"
-          font-family="Arial"
-          fill="rgba(255,255,255,0.35)"
+          font-size="18"
+          font-family="Arial, sans-serif"
+          font-weight="600"
+          fill="rgba(255,255,255,0.80)"
+          style="text-shadow: 1px 1px 3px rgba(0,0,0,0.5);"
         >
           LEVANTATECUBA.COM
         </text>
@@ -852,9 +854,10 @@ async function publishToFacebook({ message, imageUrl, imagePath, userToken }) {
  * @param {Buffer} options.imageBuffer - Buffer de la imagen a publicar
  * @param {string} [options.imagePath] - Ruta local de la imagen (alternativa a buffer)
  * @param {string} [options.userToken] - User token para resolver PAGE_TOKEN
+ * @param {string} [options.link] - URL del link "Ver más" en la Story
  * @returns {Promise<{storyId: string, success: boolean}>}
  */
-async function publishToFacebookStory({ imageBuffer, imagePath, userToken }) {
+async function publishToFacebookStory({ imageBuffer, imagePath, userToken, link }) {
   console.log(`\n[FB Story] === PUBLICANDO EN STORY ===`);
   
   // Obtener configuración validada
@@ -951,6 +954,12 @@ async function publishToFacebookStory({ imageBuffer, imagePath, userToken }) {
       photo_id: photoId,
       access_token: finalPageToken
     });
+    
+    // Agregar link "Ver más" si está disponible
+    if (link) {
+      storyData.append('link', link);
+      console.log(`[FB Story] 🔗 Link agregado: ${link}`);
+    }
     
     const storyResponse = await fetch(storyUrl, {
       method: "POST",
@@ -1781,7 +1790,8 @@ async function publishNewsToFacebook(news, options = {}) {
       console.log(`[FB Publisher] 📱 Publicando en Stories con imagen: ${imagePath}`);
       storyResult = await publishToFacebookStory({
         imagePath: imagePath,
-        userToken: options.userToken
+        userToken: options.userToken,
+        link: canonicalUrl  // Link "Ver más" que lleva a la noticia
       });
       
       if (storyResult.success) {

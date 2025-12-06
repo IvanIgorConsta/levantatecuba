@@ -211,7 +211,7 @@ export default function Noticias() {
     <div className="news-card w-full max-w-full bg-zinc-800/80 hover:bg-zinc-700/80 rounded-2xl border border-zinc-700/50 shadow-lg shadow-black/40 hover:shadow-black/60 hover:-translate-y-1 hover:scale-[1.00] hover:z-10 transition-all duration-200 touch-action-manipulation will-change-transform origin-center relative z-0">
       <div className="flex flex-col h-full">
         {/* Zona clicable: NO estira (evita huecos) */}
-        <Link to={`/noticias/${n._id}`} draggable={false} className="flex flex-col flex-none">
+        <Link to={`/noticias/${n.slug || n._id}`} draggable={false} className="flex flex-col flex-none">
           {/* Imagen: altura fija derivada de la tarjeta */}
           <div 
             key={n._coverHash || n._id} 
@@ -335,7 +335,7 @@ export default function Noticias() {
             </div>
 
             {/* Redes */}
-            {renderCompartir(n._id, n.titulo)}
+            {renderCompartir(n.slug || n._id, n.titulo)}
           </div>
         </div>
       </div>
@@ -358,8 +358,8 @@ export default function Noticias() {
   };
 
   // Íconos de compartir (sin título “Compartir”)
-  const renderCompartir = (id, titulo) => {
-    const url = encodeURIComponent(`${window.location.origin}/noticias/${id}`);
+  const renderCompartir = (slugOrId, titulo) => {
+    const url = encodeURIComponent(`${window.location.origin}/noticias/${slugOrId}`);
     const text = encodeURIComponent(titulo);
     return (
       <div className="flex gap-4 text-white text-xl">
@@ -402,7 +402,7 @@ export default function Noticias() {
       "itemListElement": noticiasAgrupadas?.["Hoy"]?.slice(0, 10).map((n, idx) => ({
         "@type": "ListItem",
         "position": idx + 1,
-        "url": `https://levantatecuba.com/noticias/${n._id}`,
+        "url": `https://levantatecuba.com/noticias/${n.slug || n._id}`,
         "name": n.titulo,
         ...(n._cover && { "image": n._cover.startsWith('http') ? n._cover : `https://levantatecuba.com${n._cover}` }),
         ...(n.createdAt && { "datePublished": new Date(n.createdAt).toISOString() })

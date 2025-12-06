@@ -83,21 +83,22 @@ function loadBaseHTML() {
 
 /**
  * Función para generar meta-tags para noticias
- * MEJORADO: Garantiza siempre una imagen válida
+ * MEJORADO: Acepta slug o ID, usa URL canónica con slug
  */
-async function generateNewsMetaTags(req, newsId) {
+async function generateNewsMetaTags(req, slugOrId) {
   try {
     const publicOrigin = getPublicOrigin(req);
     
-    // Buscar la noticia
-    const news = await News.findById(newsId);
+    // Buscar la noticia por slug o ID
+    const news = await News.findBySlugOrId(slugOrId);
     
     if (!news) {
       return null; // Devolver null si no se encuentra la noticia
     }
     
-    // Construir URL de la página
-    const pageUrl = `${publicOrigin}/noticias/${newsId}`;
+    // Construir URL canónica usando slug (con fallback a ID para noticias antiguas)
+    const canonicalSlug = news.slug || news._id.toString();
+    const pageUrl = `${publicOrigin}/noticias/${canonicalSlug}`;
     
     // CRÍTICO: Construir URL absoluta de imagen con múltiples fallbacks
     let imageUrl;
@@ -428,11 +429,14 @@ function injectMetaTags(html, metaTags) {
 
 /**
  * Middleware para inyección de meta-tags
+ * MEJORADO: Acepta slugs y IDs, redirige IDs antiguos a URLs con slug
  */
 async function injectMetaTagsMiddleware(req, res, next) {
   // Detectar rutas objetivo
   const isTasasRoute = req.path === '/tasas' || req.path === '/tasas/';
-  const newsMatch = req.path.match(/^\/noticias\/([a-fA-F0-9]{24})\/?$/);
+  
+  // Detectar ruta de noticia - acepta slug (letras, números, guiones) o ID (24 hex)
+  const newsMatch = req.path.match(/^\/noticias\/([a-z0-9-]+)\/?$/i);
   const isNewsRoute = !!newsMatch;
   
   // Solo procesar rutas específicas del frontend
@@ -470,12 +474,30 @@ async function injectMetaTagsMiddleware(req, res, next) {
     if (isTasasRoute) {
       metaTags = await generateTasasMetaTags(req);
     } else if (isNewsRoute) {
-      const newsId = newsMatch[1];
-      metaTags = await generateNewsMetaTags(req, newsId);
+      const slugOrId = newsMatch[1];
+      
+      // Buscar la noticia para verificar si necesita redirección
+      const news = await News.findBySlugOrId(slugOrId);
+      
+      if (!news) {
+        console.warn(`⚠️ Noticia ${slugOrId} no encontrada para meta-tags`);
+        return next();
+      }
+      
+      // Si acceden por ID y la noticia tiene slug, redirigir 301
+      const isAccessedById = /^[a-f\d]{24}$/i.test(slugOrId);
+      if (isAccessedById && news.slug) {
+        const publicOrigin = getPublicOrigin(req);
+        const canonicalUrl = `${publicOrigin}/noticias/${news.slug}`;
+        console.log(`[MetaTags] 🔄 Redirigiendo de ID a slug: ${slugOrId} → ${news.slug}`);
+        return res.redirect(301, canonicalUrl);
+      }
+      
+      metaTags = await generateNewsMetaTags(req, slugOrId);
       
       // Si no se encuentra la noticia, continuar sin meta-tags
       if (!metaTags) {
-        console.warn(`⚠️ Noticia ${newsId} no encontrada para meta-tags`);
+        console.warn(`⚠️ Noticia ${slugOrId} no encontrada para meta-tags`);
         return next();
       }
     } else {

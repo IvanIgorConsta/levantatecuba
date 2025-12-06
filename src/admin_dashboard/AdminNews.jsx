@@ -671,7 +671,7 @@ export default function AdminNews() {
       
       const hashtags = ["#LevantateCuba", "#NoticiasCuba", "#Cuba"];
       const message = `${noticia.titulo}\n\n${resumen}...\n\n🔗 Lee más en nuestra web\n\n${hashtags.join(" ")}`;
-      const link = `${window.location.origin}/noticias/${noticia._id}`;
+      const link = `${window.location.origin}/noticias/${noticia.slug || noticia._id}`;
 
       // Llamar al nuevo endpoint
       const response = await fetch("/api/social/facebook/share", {
@@ -775,7 +775,9 @@ export default function AdminNews() {
     
     try {
       // Construir URL pública de la noticia
-      const publicUrl = `${window.location.origin}/noticias/${newsId}`;
+      // Buscar la noticia para obtener su slug
+      const newsToRescrape = noticias.find(n => n._id === newsId);
+      const publicUrl = `${window.location.origin}/noticias/${newsToRescrape?.slug || newsId}`;
       
       const response = await fetch(`/api/social/facebook/rescrape?url=${encodeURIComponent(publicUrl)}`, {
         method: "GET",

@@ -95,7 +95,7 @@ export default function AppRoutes() {
         {/* /suscribete eliminado - redirigir a login */}
         <Route path="/denuncias" element={<Denuncias />} />
         <Route path="/noticias" element={<Noticias />} />
-        <Route path="/noticias/:id" element={<NoticiaDetalle />} />
+        <Route path="/noticias/:slug" element={<NoticiaDetalle />} />
         <Route path="/denuncias/nueva" element={<HacerDenuncia />} />
         <Route path="/puente-libre" element={<PuenteLibre />} />
         

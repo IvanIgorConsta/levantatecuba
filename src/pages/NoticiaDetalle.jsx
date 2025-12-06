@@ -19,7 +19,7 @@ import {
 } from "../utils/shareUtils";
 
 export default function NoticiaDetalle() {
-  const { id } = useParams();
+  const { slug } = useParams();
   const navigate = useNavigate();
   const [noticia, setNoticia] = useState(null);
   const [relacionadas, setRelacionadas] = useState([]);
@@ -29,7 +29,7 @@ export default function NoticiaDetalle() {
   // Siempre arriba al cambiar de noticia
   useEffect(() => {
     window.scrollTo(0, 0);
-  }, [id]);
+  }, [slug]);
 
   // Barra de progreso de lectura con throttling (requestAnimationFrame)
   useEffect(() => {
@@ -64,7 +64,7 @@ export default function NoticiaDetalle() {
   }, [noticia]);
 
   useEffect(() => {
-    fetch(`/api/news/${id}`)
+    fetch(`/api/news/${slug}`)
       .then((res) => {
         if (!res.ok) {
           throw new Error('Noticia no encontrada');
@@ -251,12 +251,13 @@ export default function NoticiaDetalle() {
         console.error('Error cargando noticia:', err);
         navigate('/404', { replace: true });
       });
-  }, [id]);
+  }, [slug]);
 
 
   const renderCompartir = () => {
-    // URL canónica de la noticia
-    const canonicalUrl = `${window.location.origin}/noticias/${id}`;
+    // URL canónica de la noticia (usar slug de la noticia si existe, sino el parámetro de URL)
+    const canonicalSlug = noticia?.slug || slug;
+    const canonicalUrl = `${window.location.origin}/noticias/${canonicalSlug}`;
     const url = encodeURIComponent(canonicalUrl);
     const text = encodeURIComponent(noticia?.titulo || "");
 
@@ -371,7 +372,7 @@ export default function NoticiaDetalle() {
                 key={n._id}
                 className="w-full max-w-full sm:max-w-none rounded-2xl overflow-hidden bg-zinc-900/60 border border-zinc-800/60 hover:bg-zinc-900/80 transition group"
               >
-                <Link to={`/noticias/${n._id}`} className="block">
+                <Link to={`/noticias/${n.slug || n._id}`} className="block">
                   {/* Cover con key para bust de caché visual */}
                   <div 
                     key={n._coverHash || n._id} 
@@ -439,7 +440,7 @@ export default function NoticiaDetalle() {
         {noticia?.autor && <meta name="author" content={noticia.autor} />}
         
         {/* Canonical y robots */}
-        <link rel="canonical" href={`https://levantatecuba.com/noticias/${noticia?._id}`} />
+        <link rel="canonical" href={`https://levantatecuba.com/noticias/${noticia?.slug || noticia?._id}`} />
         <meta name="robots" content="index,follow,max-image-preview:large" />
         
         {/* Open Graph para navegación SPA */}
@@ -448,7 +449,7 @@ export default function NoticiaDetalle() {
         <meta property="og:image" content={noticia?._cover ? 
           (noticia._cover.startsWith('http') ? noticia._cover : `https://levantatecuba.com${noticia._cover}`) : 
           "https://levantatecuba.com/img/og-default.jpg"} />
-        <meta property="og:url" content={`https://levantatecuba.com/noticias/${noticia?._id}`} />
+        <meta property="og:url" content={`https://levantatecuba.com/noticias/${noticia?.slug || noticia?._id}`} />
         <meta property="og:type" content="article" />
         <meta property="og:site_name" content="LevántateCuba" />
         
@@ -480,10 +481,10 @@ export default function NoticiaDetalle() {
                 "url": "https://levantatecuba.com/img/logo-organization.png" 
               } 
             },
-            "url": `https://levantatecuba.com/noticias/${noticia?._id}`,
+            "url": `https://levantatecuba.com/noticias/${noticia?.slug || noticia?._id}`,
             "mainEntityOfPage": { 
               "@type": "WebPage", 
-              "@id": `https://levantatecuba.com/noticias/${noticia?._id}` 
+              "@id": `https://levantatecuba.com/noticias/${noticia?.slug || noticia?._id}` 
             },
             "articleSection": noticia?.categoria || "General",
             "inLanguage": "es-ES"
@@ -677,7 +678,7 @@ export default function NoticiaDetalle() {
             
             <CommentThread 
               contextType="news" 
-              targetId={id} 
+              targetId={noticia?._id} 
               className="mt-4"
             />
           </section>
