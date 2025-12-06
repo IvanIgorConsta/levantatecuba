@@ -311,7 +311,7 @@ const PRODUCT_BY_ID = `
   }
 `;
 
-// [Claude]: Nueva query - Obtener producto por handle
+// [Claude]: Nueva query - Obtener producto por handle (con options para tallas/colores)
 const PRODUCT_BY_HANDLE = `
   query getProductByHandle($handle: String!) {
     productByHandle(handle: $handle) {
@@ -322,6 +322,11 @@ const PRODUCT_BY_HANDLE = `
       vendor
       productType
       tags
+      availableForSale
+      options {
+        name
+        values
+      }
       featuredImage {
         url
         altText
@@ -348,12 +353,16 @@ const PRODUCT_BY_HANDLE = `
           currencyCode
         }
       }
-      variants(first: 20) {
+      variants(first: 100) {
         edges {
           node {
             id
             title
             availableForSale
+            image {
+              url
+              altText
+            }
             selectedOptions {
               name
               value

@@ -1,6 +1,5 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { ShieldAlert } from "lucide-react";
 
 export default function Sidebar({ onLinkClick }) {
   const navigate = useNavigate();
@@ -85,15 +84,6 @@ export default function Sidebar({ onLinkClick }) {
               className={`group sidebar-link ${isActive("/admin/users") ? "sidebar-link-active" : ""}`}
             >
               <span>Usuarios</span>
-            </Link>
-
-            <Link
-              to="/admin/password-requests"
-              onClick={handleClick}
-              className={`group sidebar-link ${isActive("/admin/password-requests") ? "sidebar-link-active" : ""}`}
-            >
-              <ShieldAlert className="sidebar-icon" />
-              <span>Solicitudes de contraseña</span>
             </Link>
           </>
         )}

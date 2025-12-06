@@ -110,6 +110,10 @@ const AiDraftSchema = new Schema(
     generatedImagesPersisted: {
       principal: { type: Boolean, default: false },
     },
+    
+    // URL original de la imagen fuente (para regeneración si se pierde)
+    originalImageUrl: { type: String, default: null },
+    originalImageSource: { type: String, default: null }, // URL del artículo fuente
 
     // Cambio: ahora opcional; null cuando lo genera el sistema
     generatedBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },

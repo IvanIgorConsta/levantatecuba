@@ -180,8 +180,8 @@ export default function ContenidoUsuarios() {
                 <p className="text-zinc-300 leading-relaxed">
                   Si consideras que algún contenido publicado en LevántateCuba viola tus derechos 
                   o estas normas, puedes contactarnos en:{' '}
-                  <a href="mailto:contacto@levantatecuba.com" className="text-red-400 hover:text-red-300">
-                    contacto@levantatecuba.com
+                  <a href="mailto:soporte@levantatecuba.com" className="text-red-400 hover:text-red-300">
+                    soporte@levantatecuba.com
                   </a>
                 </p>
                 <p className="text-zinc-300 leading-relaxed mt-2">

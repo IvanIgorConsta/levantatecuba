@@ -110,6 +110,11 @@ const newsSchema = new mongoose.Schema(
       type: Date,
       default: null
     },
+    // Timestamp de cuando se adquirió el lock "sharing" (para expiración)
+    facebook_sharing_since: {
+      type: Date,
+      default: null
+    },
     
     // Campos para programación automática en Facebook
     eligibleForFacebook: {

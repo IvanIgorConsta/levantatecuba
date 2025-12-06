@@ -346,13 +346,30 @@ function normalizeDraftPayload(topic, response, mode = 'factual') {
  */
 async function generateSingleDraft(topic, user, mode, config, formatStyle = 'standard') {
   const startTime = Date.now();
+  const DEBUG_GENERATION = config.debugGeneration || process.env.DEBUG_GENERATION === 'true';
 
   const inputs = buildClaudeInput(topic, mode, config, formatStyle);
+  
+  // 🔍 MONITOR: Log del input que se enviará al LLM
+  if (DEBUG_GENERATION) {
+    console.log('\n' + '═'.repeat(80));
+    console.log('🔍 [MONITOR] INICIO GENERACIÓN FACTUAL');
+    console.log('═'.repeat(80));
+    console.log(`📝 Topic ID: ${topic.idTema}`);
+    console.log(`📰 Título sugerido: ${topic.tituloSugerido}`);
+    console.log(`📋 Modo: ${mode} | Formato: ${formatStyle}`);
+    console.log(`🔗 Fuentes: ${(topic.fuentesTop || []).length}`);
+    console.log('─'.repeat(80));
+    console.log('📤 INPUT ENVIADO AL LLM:');
+    console.log(JSON.stringify(inputs, null, 2));
+    console.log('─'.repeat(80));
+  }
 
   let rawResponse, response, norm;
   const modelUsed = config.aiModel || 'claude-3-5-sonnet-20240620';
   let attemptCount = 0;
   const maxAttempts = mode === 'factual' ? 2 : 1; // Permitir reintentos solo en FACTUAL
+  let llmCost = 0; // Variable de costo para el monitor final
   
   try {
     // Usar sistema de prompts mejorado
@@ -377,13 +394,44 @@ async function generateSingleDraft(topic, user, mode, config, formatStyle = 'sta
     const usage = llmResult.usage;
     const isJsonMode = llmResult.isJsonMode || false;
     
-    // Debug: Mostrar respuesta del LLM
-    console.log(`[Redactor] Respuesta LLM recibida (primeros 500 chars): ${rawResponse.substring(0, 500)}`);
+    // 🔍 MONITOR: Respuesta raw del LLM
+    if (DEBUG_GENERATION) {
+      console.log('\n📥 RESPUESTA RAW DEL LLM:');
+      console.log('─'.repeat(80));
+      console.log(`🤖 Modelo: ${modelUsed}`);
+      console.log(`📊 Tokens: ${usage.prompt_tokens} input + ${usage.completion_tokens} output = ${usage.total_tokens} total`);
+      console.log(`⏱️ JSON Mode: ${isJsonMode ? 'SÍ (OpenAI)' : 'NO (Claude)'}`);
+      console.log('\n📄 CONTENIDO COMPLETO:');
+      console.log(rawResponse);
+      console.log('─'.repeat(80));
+    } else {
+      console.log(`[Redactor] Respuesta LLM recibida (primeros 500 chars): ${rawResponse.substring(0, 500)}`);
+    }
     
     response = parseCleanJSON(rawResponse, true, isJsonMode);
     
-    // Debug: Verificar campos en response
-    console.log(`[Redactor] Campos en response: titulo=${!!response.titulo}, bajada=${!!response.bajada}, categoria=${!!response.categoria}, contenido=${response.contenidoMarkdown?.length || 0} chars`);
+    // 🔍 MONITOR: JSON parseado
+    if (DEBUG_GENERATION) {
+      console.log('\n✅ JSON PARSEADO EXITOSAMENTE:');
+      console.log('─'.repeat(80));
+      console.log(`📌 Título: ${response.titulo || '(vacío)'}`);
+      console.log(`📝 Bajada: ${(response.bajada || '').substring(0, 100)}...`);
+      console.log(`🏷️ Categoría: ${response.categoria || '(vacío)'}`);
+      console.log(`🏷️ Etiquetas: ${(response.etiquetas || []).join(', ')}`);
+      console.log(`📄 Contenido: ${response.contenidoMarkdown?.length || 0} caracteres`);
+      console.log(`✓ Verificaciones: ${(response.verifications || []).length}`);
+      console.log('─'.repeat(80));
+      
+      // Mostrar estructura del contenido
+      if (response.contenidoMarkdown) {
+        const sections = response.contenidoMarkdown.match(/^##\s+.+$/gm) || [];
+        console.log('📑 SECCIONES DETECTADAS EN CONTENIDO:');
+        sections.forEach((s, i) => console.log(`   ${i+1}. ${s}`));
+        console.log('─'.repeat(80));
+      }
+    } else {
+      console.log(`[Redactor] Campos en response: titulo=${!!response.titulo}, bajada=${!!response.bajada}, categoria=${!!response.categoria}, contenido=${response.contenidoMarkdown?.length || 0} chars`);
+    }
     
     // PASO 1: Normalizar payload PRIMERO (deriva categoría automáticamente)
     norm = normalizeDraftPayload(topic, response, mode);
@@ -444,6 +492,22 @@ Amplía el artículo a mínimo 3000 caracteres manteniendo:
     
     const validation = validateContentQuality(normalizedResponse, mode);
     
+    // 🔍 MONITOR: Resultados de validación de calidad
+    if (DEBUG_GENERATION) {
+      console.log('\n🔎 VALIDACIÓN DE CALIDAD:');
+      console.log('─'.repeat(80));
+      console.log(`✅ Válido: ${validation.valid ? 'SÍ' : 'NO'}`);
+      if (validation.errors.length > 0) {
+        console.log('❌ ERRORES:');
+        validation.errors.forEach(e => console.log(`   • ${e}`));
+      }
+      if (validation.warnings.length > 0) {
+        console.log('⚠️ ADVERTENCIAS:');
+        validation.warnings.forEach(w => console.log(`   • ${w}`));
+      }
+      console.log('─'.repeat(80));
+    }
+    
     if (!validation.valid) {
       console.error('[Redactor] Errores de validación:', validation.errors);
       throw new Error(`Contenido no válido: ${validation.errors.join(', ')}`);
@@ -475,11 +539,27 @@ Amplía el artículo a mínimo 3000 caracteres manteniendo:
         console.warn('[Redactor] ⚠️ Advertencias de estructura:', structureValidation.issues);
       }
       
-      console.log(`[Redactor] Validación estructura FACTUAL: ${structureValidation.valid ? '✅ OK' : '⚠️ Autocorregido'}`);
+      // 🔍 MONITOR: Validación de estructura
+      if (DEBUG_GENERATION) {
+        console.log('\n📐 VALIDACIÓN DE ESTRUCTURA FACTUAL:');
+        console.log('─'.repeat(80));
+        console.log(`✅ Estructura válida: ${structureValidation.valid ? 'SÍ' : 'NO'}`);
+        console.log(`🔧 Autocorregido: ${structureValidation.corrected ? 'SÍ' : 'NO'}`);
+        if (structureValidation.missingSections.length > 0) {
+          console.log(`❌ Secciones faltantes: ${structureValidation.missingSections.join(', ')}`);
+        }
+        if (structureValidation.issues.length > 0) {
+          console.log('⚠️ Issues:');
+          structureValidation.issues.forEach(i => console.log(`   • ${i}`));
+        }
+        console.log('─'.repeat(80));
+      } else {
+        console.log(`[Redactor] Validación estructura FACTUAL: ${structureValidation.valid ? '✅ OK' : '⚠️ Autocorregido'}`);
+      }
     }
     
     // Calcular y registrar costo del LLM con tokens reales
-    const llmCost = calculateLLMCost({ 
+    llmCost = calculateLLMCost({ 
       model: modelUsed, 
       promptTokens: usage.prompt_tokens,
       completionTokens: usage.completion_tokens
@@ -533,6 +613,9 @@ Amplía el artículo a mínimo 3000 caracteres manteniendo:
   let imageKind = null;
   let imageMeta = null;
   let imageProviderFinal = '';
+  
+  // ID temporal para directorio de imágenes (se usa antes de tener el ID real del draft)
+  const tempDraftId = topic.idTema || `temp-${Date.now()}`;
 
   // Captura automática de imágenes del sitio (prioridad sobre generación IA)
   if (config.autoCaptureImageFromSourceOnCreate) {
@@ -598,9 +681,7 @@ Amplía el artículo a mínimo 3000 caracteres manteniendo:
       promptsImagen: norm.promptsImagen // ✅ Incluir prompts generados por LLM
     };
     
-    // Usar el topicId como draftId temporal (se actualizará después)
-    const tempDraftId = topic.idTema || `temp-${Date.now()}`;
-    
+    // tempDraftId ya está definido arriba
     const images = await generateImages(norm.promptsImagen, config, topic, tempDraft, tempDraftId);
     
     // Capturar metadata de likeness si existe
@@ -829,7 +910,24 @@ Amplía el artículo a mínimo 3000 caracteres manteniendo:
     }
   }
 
-  console.log(`[Redactor] Borrador creado: ${draft._id} (${draft.titulo}) mode=${draft.mode} reviewStatus=${draft.reviewStatus}`);
+  // 🔍 MONITOR: Resumen final de generación
+  if (DEBUG_GENERATION) {
+    const duration = Date.now() - startTime;
+    console.log('\n' + '═'.repeat(80));
+    console.log('✅ [MONITOR] GENERACIÓN COMPLETADA');
+    console.log('═'.repeat(80));
+    console.log(`📝 Draft ID: ${draft._id}`);
+    console.log(`📰 Título final: ${draft.titulo}`);
+    console.log(`🏷️ Categoría: ${draft.categoria} (confianza: ${categoryConfidence})`);
+    console.log(`📄 Contenido: ${norm.contenidoMarkdown.length} caracteres`);
+    console.log(`🖼️ Imagen: ${imagePersisted ? coverUrl : 'No generada'}`);
+    console.log(`⏱️ Duración total: ${duration}ms`);
+    console.log(`💰 Costo estimado: $${llmCost?.toFixed(4) || '0.0000'}`);
+    console.log('═'.repeat(80) + '\n');
+  } else {
+    console.log(`[Redactor] Borrador creado: ${draft._id} (${draft.titulo}) mode=${draft.mode} reviewStatus=${draft.reviewStatus}`);
+  }
+  
   return draft;
 }
 
@@ -2392,6 +2490,11 @@ async function generateImageForDraft(draftId, providerOverride = null, force = f
     draft.generatedImagesPersisted = { principal: true };
     draft.imageKind = images.kind || images.imageKind || 'processed';
     draft.imageProvider = images.provider || provider || 'internal'; // Proveedor real de primer nivel
+    
+    // Guardar URLs originales para regeneración si se pierde la imagen
+    draft.originalImageUrl = images.originalImageUrl || null;
+    draft.originalImageSource = images.originalImageSource || null;
+    
     // Asegurar proveedor real en aiMetadata
     draft.aiMetadata = draft.aiMetadata || {};
     draft.aiMetadata.imageProvider = images.provider || draft.aiMetadata.imageProvider || provider;

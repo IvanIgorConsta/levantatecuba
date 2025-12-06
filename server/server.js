@@ -97,6 +97,18 @@ app.use(compression({
 const { initializePassport } = require("./config/passport");
 initializePassport();
 
+// 4.3) Headers no-cache para API (evitar caché de Cloudflare)
+app.use('/api', (req, res, next) => {
+  res.set({
+    'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+    'Pragma': 'no-cache',
+    'Expires': '0',
+    'Surrogate-Control': 'no-store',
+    'CDN-Cache-Control': 'no-store'
+  });
+  next();
+});
+
 // 5) CORS con configuración limpia (dominio + IP + dev)
 const publicOrigin = process.env.PUBLIC_ORIGIN || 'https://levantatecuba.com';
 const devOriginsEnv = process.env.DEV_ORIGINS || '';
@@ -276,6 +288,7 @@ app.use("/api/stripe", require("./routes/stripe")); // Rutas de Stripe para prod
 app.use("/api/tienda", require("./routes/store")); // Rutas de la tienda interna
 app.use("/api/shopify", require("./routes/shopify")); // Rutas de Shopify Storefront API
 app.use("/api/redactor-ia", authLimiter, require("./redactor_ia/routes/redactorIA")); // Redactor IA
+app.use("/api/debug", authLimiter, require("./routes/debug")); // Rutas de debug (solo admin)
 app.use("/media", require("./routes/mediaRoutes")); // Servir imágenes procesadas
 app.use("/og", require("./routes/og"));
 
@@ -364,8 +377,12 @@ app.get("/healthz", (_req, res) => {
 
 // 15) Arranque
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, "0.0.0.0", () => {
+app.listen(PORT, "0.0.0.0", async () => {
   console.log(`🚀 Server on http://0.0.0.0:${PORT}`);
   console.log(`🔒 CORS permitido para: ${Array.from(allowList).join(', ')}`);
   console.log(`🌍 Entorno: ${process.env.NODE_ENV || 'development'}`);
+  
+  // Verificar conexión SMTP al iniciar
+  const emailService = require('./services/emailService');
+  await emailService.verifyConnection();
 });

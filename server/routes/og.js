@@ -469,5 +469,102 @@ router.get("/tasas.png", async (req, res) => {
   }
 });
 
+// ============================================================================
+// OG TAGS DINÁMICAS PARA NOTICIAS (Facebook, WhatsApp, Twitter previews)
+// Creado: 2025-12-01
+// ============================================================================
+
+const News = require("../models/News");
+const { renderOgPage, isSocialBot } = require("../utils/renderOgPage");
+
+/**
+ * Construir URL absoluta de imagen
+ */
+function getAbsoluteImageUrl(imagePath) {
+  if (!imagePath) return 'https://levantatecuba.com/img/og-default.jpg';
+  
+  // Si ya es URL absoluta
+  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+    return imagePath;
+  }
+  
+  // Si es path relativo
+  const base = 'https://levantatecuba.com';
+  if (imagePath.startsWith('/')) {
+    return base + imagePath;
+  }
+  return base + '/' + imagePath;
+}
+
+/**
+ * Extraer texto plano del contenido HTML
+ */
+function getExcerpt(contenido, maxLength = 200) {
+  if (!contenido) return 'Lee esta noticia en LevántateCuba';
+  
+  let text = contenido
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  
+  if (text.length > maxLength) {
+    text = text.substring(0, maxLength - 3) + '...';
+  }
+  
+  return text || 'Lee esta noticia en LevántateCuba';
+}
+
+/**
+ * GET /og/noticias/:id
+ * Ruta dedicada para OG previews de noticias
+ * Devuelve HTML con meta tags para bots de redes sociales
+ */
+router.get("/noticias/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Validar ObjectId
+    if (!id.match(/^[0-9a-fA-F]{24}$/)) {
+      return res.redirect(`https://levantatecuba.com/noticias`);
+    }
+    
+    // Buscar noticia
+    const noticia = await News.findById(id);
+    
+    if (!noticia) {
+      return res.redirect(`https://levantatecuba.com/noticias`);
+    }
+    
+    // Construir datos para OG
+    const title = noticia.titulo || 'Noticia | LevántateCuba';
+    const description = noticia.bajada || getExcerpt(noticia.contenido, 200);
+    
+    // Prioridad de imagen: imagen principal > imagenOpcional > imagenSecundaria > default
+    let imageUrl = noticia.imagen || noticia.imagenOpcional || noticia.imagenSecundaria;
+    imageUrl = getAbsoluteImageUrl(imageUrl);
+    
+    const url = `https://levantatecuba.com/noticias/${id}`;
+    
+    // Generar HTML con OG tags
+    const html = renderOgPage({
+      title,
+      description,
+      imageUrl,
+      url,
+      type: 'article',
+      siteName: 'LevántateCuba'
+    });
+    
+    res.set('Content-Type', 'text/html; charset=utf-8');
+    res.send(html);
+    
+  } catch (error) {
+    console.error('❌ Error en OG noticias:', error);
+    res.redirect(`https://levantatecuba.com/noticias`);
+  }
+});
+
 module.exports = router;
 

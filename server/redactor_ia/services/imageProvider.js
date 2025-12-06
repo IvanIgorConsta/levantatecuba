@@ -808,7 +808,10 @@ async function providerInternal({ draftId, topic, draft, force = false }) {
       coverHash,
       provider: 'internal',
       source: 'processed',
-      kind: 'processed'
+      kind: 'processed',
+      // URLs originales para regeneración si se pierde la imagen
+      originalImageUrl: imageUrl,
+      originalImageSource: sourceUrl
     };
     
   } catch (error) {

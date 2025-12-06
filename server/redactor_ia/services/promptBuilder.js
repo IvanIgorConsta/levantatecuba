@@ -10,21 +10,19 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 // SECCIONES OBLIGATORIAS PARA ARTÍCULOS FACTUALES (STRICT MODE)
 // TODAS estas secciones DEBEN aparecer EXACTAMENTE con estos títulos
-// El orden es CRÍTICO: 1→2→3→4→5
+// El orden es CRÍTICO: 1→2→3→4
 // ═══════════════════════════════════════════════════════════════════════════════
 const REQUIRED_SECTIONS_FACTUAL = [
   { id: 'contexto', heading: '## Contexto del hecho', required: true, order: 1 },
   { id: 'causa', heading: '## Causa y consecuencia', required: true, order: 2 },
-  { id: 'citas', heading: '## Citas verificables', required: true, order: 3 }, // ← Ahora OBLIGATORIO
-  { id: 'importancia', heading: '## Por qué es importante', required: true, order: 4 },
-  { id: 'datos', heading: '## Datos importantes', required: true, order: 5 }, // ← Ahora OBLIGATORIO
+  { id: 'importancia', heading: '## Por qué es importante', required: true, order: 3 },
+  { id: 'datos', heading: '## Datos importantes', required: true, order: 4 },
 ];
 
 // Regex patterns para detectar cada sección (case-insensitive)
 const SECTION_PATTERNS = {
   contexto: /^##\s*contexto\s+del\s+hecho/im,
   causa: /^##\s*causa\s+y\s+consecuencia/im,
-  citas: /^##\s*citas\s+verificables/im,
   importancia: /^##\s*por\s+qu[eé]\s+(es\s+)?importante/im,
   datos: /^##\s*datos\s+importantes/im,
 };
@@ -45,57 +43,72 @@ function getStructureInstructions(mode = 'factual') {
 ⛔ La estructura es MÁS IMPORTANTE que la creatividad o el estilo.
 ⛔ NUNCA omitas una sección. NUNCA cambies los títulos.
 
-El campo "contenidoMarkdown" DEBE contener EXACTAMENTE estas 5 secciones EN ESTE ORDEN:
+El campo "contenidoMarkdown" DEBE contener EXACTAMENTE estas 4 secciones EN ESTE ORDEN:
 
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │ SECCIÓN 1: ## Contexto del hecho                                            │
 ├─────────────────────────────────────────────────────────────────────────────┤
-│ - 2-3 párrafos explicando el contexto, antecedentes y situación actual      │
+│ - 2-3 PÁRRAFOS (prosa continua, SIN bullets ni viñetas)                     │
+│ - Explica contexto, antecedentes y situación actual                         │
 │ - Responde: ¿Qué pasó? ¿Dónde? ¿Cuándo? ¿Quiénes están involucrados?        │
 └─────────────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │ SECCIÓN 2: ## Causa y consecuencia                                          │
 ├─────────────────────────────────────────────────────────────────────────────┤
-│ - 2-3 párrafos explicando qué provocó el hecho y sus efectos                │
+│ - 2-3 PÁRRAFOS (prosa continua, SIN bullets ni viñetas)                     │
+│ - Explica qué provocó el hecho y sus efectos                                │
 │ - Responde: ¿Por qué ocurrió? ¿Qué pasará después?                          │
 └─────────────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│ SECCIÓN 3: ## Citas verificables                                            │
+│ SECCIÓN 3: ## Por qué es importante                                         │
 ├─────────────────────────────────────────────────────────────────────────────┤
-│ - 1-2 párrafos con citas textuales de fuentes, con atribución clara         │
-│ - Si NO hay citas: "No se dispone de declaraciones oficiales verificables   │
-│   al momento de esta publicación."                                          │
-│ - ⚠️ NUNCA omitas esta sección, siempre incluye aunque sea el placeholder   │
-└─────────────────────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────────────────────┐
-│ SECCIÓN 4: ## Por qué es importante                                         │
-├─────────────────────────────────────────────────────────────────────────────┤
-│ - 2-3 párrafos explicando la relevancia para el lector                      │
+│ - 2-3 PÁRRAFOS (prosa continua, SIN bullets ni viñetas)                     │
+│ - Explica la relevancia para el lector                                      │
 │ - Impacto social, económico o político                                      │
 └─────────────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│ SECCIÓN 5: ## Datos importantes                                             │
+│ SECCIÓN 4: ## Datos importantes                                             │
 ├─────────────────────────────────────────────────────────────────────────────┤
-│ - Lista de bullets con datos clave: fechas, cifras, lugares, responsables   │
-│ - Formato: "- El evento ocurrió el 15 de marzo de 2024"                     │
-│ - Si NO hay datos específicos: "- No se han divulgado datos oficiales       │
-│   adicionales al momento de esta publicación."                              │
+│ - ÚNICA sección que usa bullets (OBLIGATORIO usar guión - al inicio)        │
+│ - CADA línea DEBE empezar con "- " (guión + espacio)                        │
+│ - Ejemplo correcto:                                                         │
+│   - La declaración se realizó el 4 de diciembre de 2025.                    │
+│   - Las negociaciones involucran a EE.UU. y Ucrania.                        │
+│   - El conflicto en Donbas inició en 2014.                                  │
+│ - Si NO hay datos: "- No se han divulgado datos oficiales adicionales."     │
 │ - ⚠️ NUNCA omitas esta sección, siempre incluye aunque sea el placeholder   │
 └─────────────────────────────────────────────────────────────────────────────┘
 
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║  ⛔ REGLAS ESTRICTAS - VIOLACIÓN = RECHAZO AUTOMÁTICO ⛔                     ║
 ╠══════════════════════════════════════════════════════════════════════════════╣
-║ 1. Los 5 encabezados DEBEN aparecer EXACTAMENTE como se muestran arriba     ║
-║ 2. El ORDEN debe ser: Contexto → Causa → Citas → Importancia → Datos        ║
+║ 1. Los 4 encabezados DEBEN aparecer EXACTAMENTE como se muestran arriba     ║
+║ 2. El ORDEN debe ser: Contexto → Causa → Importancia → Datos                ║
 ║ 3. NO uses variantes como "Datos duros", "Contexto", "Importancia"          ║
 ║ 4. NO generes contenido sin secciones (bloque único)                        ║
 ║ 5. Cada sección debe tener contenido sustancial (mínimo 100 caracteres)     ║
 ║ 6. NO añadas secciones extra como "## Cierre" o "## Conclusión"             ║
+║ 7. NUNCA incluyas secciones "Verificaciones" ni "Prompt de imagen"          ║
+║ 8. NUNCA repitas información entre secciones (ver regla 9)                  ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  🔁 CONTROL DE REPETICIÓN - REGLA 9 (OBLIGATORIA)                           ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║ ⛔ PROHIBIDO REPETIR PÁRRAFOS:                                               ║
+║ - NUNCA escribas el mismo párrafo dos veces dentro de una sección           ║
+║ - NUNCA copies contenido de una sección a otra                              ║
+║ - Si escribiste algo, NO lo repitas con otras palabras                      ║
+║ - Cada párrafo debe contener información NUEVA y ÚNICA                      ║
+║                                                                              ║
+║ DIFERENCIACIÓN ENTRE SECCIONES:                                             ║
+║ - "Contexto" = qué pasó y dónde (hechos puros, NO causas)                   ║
+║ - "Causa" = por qué ocurrió (factores, decisiones - NO repetir contexto)    ║
+║ - "Importancia" = cómo afecta al ciudadano (NO repetir causas ni contexto)  ║
+║ - "Datos" = SOLO bullets con cifras/fechas/nombres (NO narrativa)           ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 `;
   }
@@ -106,7 +119,8 @@ El campo "contenidoMarkdown" DEBE contener EXACTAMENTE estas 5 secciones EN ESTE
 ESTRUCTURA OBLIGATORIA DEL CONTENIDO (contenidoMarkdown)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-El campo "contenidoMarkdown" DEBE contener estas secciones:
+El campo "contenidoMarkdown" DEBE contener estas secciones.
+⚠️ FORMATO: Todas las secciones deben ser PÁRRAFOS (prosa continua). NO uses bullets ni viñetas.
 
 ## Declaración inicial
 [1-2 párrafos con afirmación o pregunta impactante que plantee la tesis]
@@ -125,6 +139,23 @@ El campo "contenidoMarkdown" DEBE contener estas secciones:
 
 ## Reflexión final
 [1-2 párrafos con pregunta poderosa o frase memorable]
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  🔁 CONTROL DE REPETICIÓN Y PROHIBICIONES (OBLIGATORIO)                     ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║ - NUNCA incluyas secciones "Verificaciones" ni "Prompt de imagen"          ║
+║ - Cada sección debe aportar UNA idea nueva que no exista en las anteriores  ║
+║ - Si detectas que repites la misma idea con otras palabras, pasa a otro     ║
+║   ángulo o dato.                                                            ║
+║                                                                              ║
+║ DIFERENCIACIÓN CLARA:                                                       ║
+║ - "Declaración" = gancho emocional, pregunta o afirmación provocadora       ║
+║ - "Postura" = contexto y posición del medio (NO repetir el gancho)          ║
+║ - "Hechos" = datos duros que respaldan (NO opinión aquí)                    ║
+║ - "Por qué importa" = cómo afecta al lector común en su vida diaria         ║
+║ - "Lo que nadie dice" = ángulo oculto, hipocresía (NO repetir impacto)      ║
+║ - "Reflexión" = cierre memorable (NO resumir lo anterior)                   ║
+╚══════════════════════════════════════════════════════════════════════════════╝
 `;
 }
 
@@ -337,14 +368,7 @@ ESQUEMA JSON:
   "bajada": "string (2-3 líneas que respondan qué/dónde/quién)",
   "categoria": "UNA de [${allowedList}]",
   "etiquetas": ["array", "de", "strings", "relevantes"],
-  "contenidoMarkdown": "string (MÍNIMO 3000 caracteres con estructura completa, puede incluir markdown con \\n)",
-  "verifications": [
-    {"hecho": "dato verificado", "found_in": ["fuente1", "fuente2"], "confidence": 0-100}
-  ],
-  "promptsImagen": {
-    "principal": "descripción visual editorial para DALL-E",
-    "opcional": "variante alternativa"
-  }
+  "contenidoMarkdown": "string (MÍNIMO 3000 caracteres con estructura completa, puede incluir markdown con \\n)"
 }`;
   } else {
     // OPINIÓN
@@ -407,14 +431,7 @@ ESQUEMA JSON:
   "bajada": "string (planteamiento de postura personal)",
   "categoria": "UNA de [${allowedList}]",
   "etiquetas": ["array", "de", "strings", "relevantes"],
-  "contenidoMarkdown": "string (600-900 palabras con estructura completa, puede incluir markdown con \\n)",
-  "verifications": [
-    {"hecho": "dato verificado", "found_in": ["fuente1", "fuente2"], "confidence": 0-100}
-  ],
-  "promptsImagen": {
-    "principal": "descripción visual editorial para DALL-E",
-    "opcional": "variante alternativa"
-  }
+  "contenidoMarkdown": "string (600-900 palabras con estructura completa, puede incluir markdown con \\n)"
 }`;
   }
 }
@@ -620,7 +637,7 @@ function validateStructure(content, mode = 'factual') {
     // Verificar que no sea un bloque único (debe tener al menos 4 encabezados ##)
     const headingCount = (content.match(/^##\s+/gm) || []).length;
     if (headingCount < 4) {
-      warnings.push(`Solo ${headingCount} secciones H2 detectadas (mínimo requerido: 5)`);
+      warnings.push(`Solo ${headingCount} secciones H2 detectadas (mínimo requerido: 4)`);
     }
     
     // Advertir si tiene secciones extra no esperadas
@@ -714,7 +731,6 @@ function strictValidateAndAutocorrect(content, options = {}) {
     const placeholders = {
       contexto: '\n\n## Contexto del hecho\n\nLa información de contexto no está disponible al momento de esta publicación. Se actualizará cuando se obtengan más detalles.\n',
       causa: '\n\n## Causa y consecuencia\n\nAún no se han determinado las causas exactas de este suceso ni sus posibles consecuencias a mediano plazo.\n',
-      citas: '\n\n## Citas verificables\n\nNo se dispone de declaraciones oficiales verificables al momento de esta publicación.\n',
       importancia: '\n\n## Por qué es importante\n\nEste hecho representa un evento significativo cuyas implicaciones aún están siendo evaluadas por analistas y observadores.\n',
       datos: '\n\n## Datos importantes\n\n- No se han divulgado datos oficiales adicionales al momento de esta publicación.\n'
     };

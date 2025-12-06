@@ -172,7 +172,11 @@ export default function Noticias() {
   // Paso 1: Ordenar las noticias filtradas
   const noticiasOrdenadas = filtrarNoticias
     .sort((a, b) => {
-      // 1º destacada, 2º fecha desc
+      if (isMobile) {
+        // MÓVIL: Solo por fecha (más recientes primero)
+        return new Date(b.createdAt) - new Date(a.createdAt);
+      }
+      // DESKTOP: Destacadas primero, luego por fecha
       const byFeatured = (b.destacada === true) - (a.destacada === true);
       if (byFeatured !== 0) return byFeatured;
       return new Date(b.createdAt) - new Date(a.createdAt);
@@ -568,14 +572,32 @@ export default function Noticias() {
           />
         </div>
 
-        {/* Noticias agrupadas */}
+        {/* Noticias */}
         {loading ? (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {Array.from({ length: 6 }).map((_, idx) => (
               <SkeletonCard key={idx} />
             ))}
           </div>
+        ) : isMobile ? (
+          /* MÓVIL: Lista plana continua (sin agrupación) para scroll infinito sin repeticiones */
+          <div className="flex flex-col gap-6 px-2 pb-8">
+            {mostrarNoticias.map((item) => (
+              <div key={item._id || item.id}>
+                {renderNewsCard(item)}
+              </div>
+            ))}
+            
+            {/* Indicador de carga al final */}
+            {visibleCount < noticiasOrdenadas.length && (
+              <div className="flex justify-center items-center py-4 gap-2">
+                <div className="w-5 h-5 border-2 border-white border-t-red-500 rounded-full animate-spin" />
+                <span className="text-white/70 text-sm">Cargando más...</span>
+              </div>
+            )}
+          </div>
         ) : (
+          /* DESKTOP/TABLET: Vista agrupada por fecha con carruseles */
           Object.entries(noticiasAgrupadas).map(([grupo, arr]) => {
             if (arr.length === 0) return null;
             
@@ -586,48 +608,25 @@ export default function Noticias() {
                   {grupo}
                 </h2>
 
-                {/* Vista móvil: lista vertical */}
-                <div className="block sm:hidden">
-                  <ul className="flex flex-col gap-6 px-4 pb-8">
-                    {arr.map((item) => (
-                      <li key={item._id || item.id} className="scroll-mb-4">
-                        {renderNewsCard(item)}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                {/* Vista tablet/desktop: carrusel horizontal */}
-                <div className="hidden sm:block">
-                  <Carousel
-                    items={arr}
-                    label={`Carrusel de ${grupo}`}
-                    renderItem={renderNewsCard}
-                  />
-                </div>
+                <Carousel
+                  items={arr}
+                  label={`Carrusel de ${grupo}`}
+                  renderItem={renderNewsCard}
+                />
               </div>
             );
           })
         )}
 
         {/* Sin resultados */}
-        {filtrarNoticias.length === 0 && (
+        {filtrarNoticias.length === 0 && !loading && (
           <p className="text-center text-gray-400 mt-10">
             No se encontraron noticias con esos criterios.
           </p>
         )}
 
-        {false && (
-          <div className="flex justify-center items-center mt-6 gap-2">
-            <div className="w-5 h-5 border-2 border-white border-t-red-500 rounded-full animate-spin" />
-            <span className="text-white/70 text-sm animate-pulse">
-              Cargando más noticias...
-            </span>
-          </div>
-        )}
-
-        {/* Sentinel para scroll infinito */}
-        <div ref={sentinelRef} className="h-10 mt-10" />
+        {/* Sentinel para scroll infinito (solo visible en móvil) */}
+        {isMobile && <div ref={sentinelRef} className="h-10" />}
         </div>
       </div>
     </>

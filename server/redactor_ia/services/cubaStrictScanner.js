@@ -3,8 +3,10 @@ const axios = require('axios');
 const https = require('https');
 const AiConfig = require('../../models/AiConfig');
 const AiTopic = require('../../models/AiTopic');
+const News = require('../../models/News');
+const AiDraft = require('../../models/AiDraft');
 const { logScan } = require('./statsService');
-const { deduplicateByTitle } = require('../utils/similarity');
+const { deduplicateByTitle, checkTitleDuplicate } = require('../utils/similarity');
 
 // Keep-alive agent para reutilizar conexiones
 const httpsAgent = new https.Agent({
@@ -374,7 +376,62 @@ async function scanCubaStrict({ limit = 20, hoursWindow = 48 }) {
       console.log(`[CubaEstricto] 🔍 Deduplicación: ${duplicatesSkipped} duplicados eliminados, ${dedupedArticles.length} artículos únicos`);
     }
     
-    if (dedupedArticles.length === 0) {
+    // VERIFICAR CONTRA NOTICIAS PUBLICADAS Y BORRADORES EXISTENTES (últimos 7 días)
+    let publishedDupesSkipped = 0;
+    let draftDupesSkipped = 0;
+    let notDuplicatedWithDB = dedupedArticles;
+    
+    try {
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      
+      // Obtener títulos de noticias publicadas y borradores en paralelo
+      const [recentNews, recentDrafts] = await Promise.all([
+        News.find({ createdAt: { $gte: sevenDaysAgo } }, { titulo: 1 }).lean(),
+        AiDraft.find({ createdAt: { $gte: sevenDaysAgo } }, { titulo: 1 }).lean()
+      ]);
+      
+      const publishedTitles = recentNews.map(n => n.titulo).filter(Boolean);
+      const draftTitles = recentDrafts.map(d => d.titulo).filter(Boolean);
+      
+      if (publishedTitles.length > 0 || draftTitles.length > 0) {
+        console.log(`[CubaEstricto] 📰 Verificando contra ${publishedTitles.length} publicadas + ${draftTitles.length} borradores...`);
+        
+        notDuplicatedWithDB = dedupedArticles.filter(article => {
+          const title = article.title || '';
+          if (!title) return true;
+          
+          // Verificar contra publicadas (70% similitud)
+          const checkPublished = checkTitleDuplicate(title, publishedTitles, 0.70);
+          if (checkPublished.isDuplicate) {
+            publishedDupesSkipped++;
+            console.log(`[CubaEstricto] 🚫 Duplicado de publicada (${(checkPublished.similarity * 100).toFixed(0)}%): "${title.substring(0, 50)}..."`);
+            return false;
+          }
+          
+          // Verificar contra borradores (70% similitud)
+          const checkDraft = checkTitleDuplicate(title, draftTitles, 0.70);
+          if (checkDraft.isDuplicate) {
+            draftDupesSkipped++;
+            console.log(`[CubaEstricto] 🚫 Duplicado de borrador (${(checkDraft.similarity * 100).toFixed(0)}%): "${title.substring(0, 50)}..."`);
+            return false;
+          }
+          
+          return true;
+        });
+        
+        if (publishedDupesSkipped > 0 || draftDupesSkipped > 0) {
+          console.log(`[CubaEstricto] 🔍 Duplicados eliminados: ${publishedDupesSkipped} publicadas, ${draftDupesSkipped} borradores`);
+        }
+      }
+    } catch (err) {
+      console.warn(`[CubaEstricto] ⚠️ Error verificando duplicados en BD: ${err.message}`);
+      // Continuar sin esta verificación
+    }
+    
+    // Reemplazar dedupedArticles con los filtrados
+    const finalArticles = notDuplicatedWithDB;
+    
+    if (finalArticles.length === 0) {
       console.log('[CubaEstricto] ⚠️  No se encontraron artículos recientes');
       console.timeEnd('[CubaEstricto] ⏱️  Tiempo total de escaneo');
       
@@ -392,10 +449,10 @@ async function scanCubaStrict({ limit = 20, hoursWindow = 48 }) {
     }
     
     // Ordenar por publishedAt descendente (más reciente primero)
-    dedupedArticles.sort((a, b) => b.publishedAt - a.publishedAt);
+    finalArticles.sort((a, b) => b.publishedAt - a.publishedAt);
     
     // Recortar al límite
-    const topArticles = dedupedArticles.slice(0, limit);
+    const topArticles = finalArticles.slice(0, limit);
     
     // Normalizar a formato de tema
     const topics = normalizeToTopics(topArticles, tenantId);

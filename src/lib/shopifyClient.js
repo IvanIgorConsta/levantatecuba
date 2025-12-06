@@ -111,13 +111,16 @@ export function normalizeProduct(raw) {
     };
   });
 
-  // Para conveniencia: conjunto de claves de opción presentes realmente en variantes
+  // Para conveniencia: conjunto de claves de opción presentes en variantes O en options del producto
   const variantOptionKeys = Array.from(
     new Set(variants.flatMap((v) => v.selectedOptions.map((o) => o.key)))
   );
 
-  // Sólo mantenemos en options las que existen en al menos una variante (previene UI vacía)
-  const optionsFiltered = options.filter((o) => variantOptionKeys.includes(o.key));
+  // Mantener options que tengan valores (incluso si las variantes no las tienen explícitamente)
+  // Esto es importante para productos de Printful/Shopify donde las options vienen del producto
+  const optionsFiltered = options.filter((o) => o.values && o.values.length > 0);
+  
+  console.log("[DBG] optionsFiltered:", optionsFiltered.map(o => ({ name: o.name, values: o.values })));
 
   // rangos de precio para fallback/mostrar "desde"
   const numericPrices = variants.map((v) => v.price).filter((p) => typeof p === "number" && !Number.isNaN(p));

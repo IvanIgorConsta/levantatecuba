@@ -1,4 +1,5 @@
 // server/routes/passwordRequests.js
+// Rutas para recuperación de contraseña vía email
 const express = require("express");
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
@@ -6,18 +7,14 @@ const { body, validationResult } = require("express-validator");
 
 const router = express.Router();
 
-const PasswordRequest = require("../models/PasswordRequest");
-const PasswordResetToken = require("../models/PasswordResetToken"); // ← requiere crear este modelo
+const PasswordResetToken = require("../models/PasswordResetToken");
 const User = require("../models/User");
-const verifyToken = require("../middleware/verifyToken");
-const verifyRole = require("../middleware/verifyRole");
-const { sendMail } = require("../utils/mailer"); // ← usa tu mailer (simula en dev si no hay SMTP)
+const { sendMail } = require("../utils/mailer");
 
 // ===============================
 // 1) Solicitud de reset (PÚBLICO)
 // POST /api/password/request
-// - Registra la solicitud (como ya tenías)
-// - Genera token y envía enlace (si el usuario existe)
+// - Genera token y envía enlace por email
 // ===============================
 router.post(
   "/request",
@@ -29,9 +26,6 @@ router.post(
 
     try {
       const { email } = req.body;
-
-      // Guardar solicitud (comportamiento existente)
-      await PasswordRequest.create({ email });
 
       // Seguridad: no revelar si existe/no existe
       const user = await User.findOne({ email });
@@ -47,10 +41,10 @@ router.post(
       await PasswordResetToken.create({ userId: user._id, token, expiresAt });
 
       // Link al frontend
-      const base = process.env.APP_BASE_URL || "http://localhost:5173";
+      const base = process.env.PUBLIC_ORIGIN || process.env.APP_BASE_URL || "http://localhost:5173";
       const link = `${base}/reset-password?token=${token}`;
 
-      // Enviar email (o simular en desarrollo)
+      // Enviar email
       await sendMail({
         to: email,
         subject: "Restablecer contraseña",
@@ -112,102 +106,10 @@ router.post(
       entry.used = true;
       await entry.save();
 
-      // Limpieza opcional: eliminar solicitudes previas del mismo email
-      await PasswordRequest.deleteMany({ email: user.email });
-
       return res.json({ ok: true, message: "Contraseña actualizada" });
     } catch (err) {
       console.error("❌ Error en /password/reset:", err);
       return res.status(500).json({ error: "Error del servidor" });
-    }
-  }
-);
-
-// ===============================
-// 3) Ver solicitudes (ADMIN/EDITOR)
-// GET /api/password/all
-// ===============================
-router.get("/all", verifyToken, verifyRole(["admin", "editor"]), async (_req, res) => {
-  try {
-    const requests = await PasswordRequest.find().sort({ createdAt: -1 });
-    res.json(requests);
-  } catch (err) {
-    console.error("❌ Error al obtener solicitudes:", err);
-    res.status(500).json({ error: "Error al obtener las solicitudes" });
-  }
-});
-
-// ===============================
-// 4) Marcar resuelta (ADMIN/EDITOR)
-// PUT /api/password/resolve/:id
-// ===============================
-router.put("/resolve/:id", verifyToken, verifyRole(["admin", "editor"]), async (req, res) => {
-  try {
-    await PasswordRequest.findByIdAndUpdate(req.params.id, { resolved: true });
-    res.json({ message: "Solicitud marcada como resuelta" });
-  } catch (err) {
-    console.error("❌ Error al actualizar solicitud:", err);
-    res.status(500).json({ error: "No se pudo actualizar" });
-  }
-});
-
-// ===============================
-// 5) Eliminar por email (ADMIN/EDITOR)
-// POST /api/password/delete
-// ===============================
-router.post(
-  "/delete",
-  verifyToken,
-  verifyRole(["admin", "editor"]),
-  [body("email").isEmail().normalizeEmail().withMessage("Email inválido")],
-  async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty())
-      return res.status(400).json({ error: "Email inválido", detalles: errors.array() });
-
-    try {
-      const { email } = req.body;
-      const deleted = await PasswordRequest.findOneAndDelete({ email });
-      if (!deleted) return res.status(404).json({ error: "Solicitud no encontrada" });
-      res.json({ message: "Solicitud eliminada correctamente" });
-    } catch (err) {
-      console.error("❌ Error al eliminar solicitud:", err);
-      res.status(500).json({ error: "Error del servidor al eliminar" });
-    }
-  }
-);
-
-// ===============================
-// 6) Cambio directo por admin/editor
-// POST /api/password/change-password
-// ===============================
-router.post(
-  "/change-password",
-  verifyToken,
-  verifyRole(["admin", "editor"]),
-  [
-    body("email").isEmail().normalizeEmail().withMessage("Email inválido"),
-    body("newPassword").isLength({ min: 6 }).withMessage("Contraseña muy corta"),
-  ],
-  async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty())
-      return res.status(400).json({ error: "Datos inválidos", detalles: errors.array() });
-
-    try {
-      const { email, newPassword } = req.body;
-      const user = await User.findOne({ email });
-      if (!user) return res.status(404).json({ error: "Usuario no encontrado." });
-
-      const hashed = await bcrypt.hash(newPassword, 10);
-      user.password = hashed;
-      await user.save();
-
-      await PasswordRequest.findOneAndDelete({ email }); // limpieza opcional
-      res.json({ message: "✅ Contraseña actualizada correctamente." });
-    } catch (err) {
-      console.error("❌ Error al cambiar contraseña:", err);
-      res.status(500).json({ error: "Error del servidor al cambiar contraseña." });
     }
   }
 );

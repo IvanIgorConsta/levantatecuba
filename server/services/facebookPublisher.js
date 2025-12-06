@@ -4,6 +4,7 @@ const FormData = require("form-data");
 const fs = require("fs");
 const path = require("path");
 const sharp = require("sharp");
+const News = require("../models/News");
 
 /**
  * Servicio para publicar en Facebook usando Graph API v23.0
@@ -11,6 +12,7 @@ const sharp = require("sharp");
  * @module services/facebookPublisher
  */
 
+// [LC-FB-COVER] Generación de imagen (logo + franja + texto) para publicar en Facebook
 /**
  * Genera portada roja especial para Facebook con logo, imagen centrada, banner y título
  * @param {Buffer} imageBuffer - Buffer de imagen original de la noticia
@@ -21,41 +23,18 @@ const sharp = require("sharp");
 async function generateFacebookRedCover(imageBuffer, newsData = {}, newsId = null) {
   try {
     const canvasSize = 1024;
-    const logoPath = path.join(__dirname, '..', 'assets', 'logo_levantatecuba.png');
     const titulo = newsData.titulo || newsData.title || '';
     
-    console.log('[FB RedCover] 🎨 Generando portada roja especial...');
+    console.log('[FB RedCover] 🎨 Generando portada especial...');
     
-    // Validar que el logo existe
-    if (!fs.existsSync(logoPath)) {
-      console.warn('[FB RedCover] ⚠️ Logo no encontrado, usando portada simple');
-      // Fallback: solo aplicar marca de agua simple
-      const watermark = Buffer.from(`
-        <svg width="400" height="80">
-          <text
-            x="100%" y="90%"
-            text-anchor="end"
-            font-size="40"
-            font-family="Arial"
-            fill="rgba(255,255,255,0.35)"
-          >
-            LevantateCuba.com
-          </text>
-        </svg>
-      `);
-      const buffer = await sharp(imageBuffer)
-        .composite([{ input: watermark, gravity: "southeast" }])
-        .toBuffer();
-      return { buffer, savedPath: null };
-    }
-    
-    // Crear título completo para Facebook (sin recortes)
+    // Crear título completo para Facebook (SIN recortes ni "...")
+    // Padding lateral: 8% cada lado = 82px → maxWidth = 1024 - 164 = 860
     const titleLayout = wrapTextForBanner(titulo, {
-      maxWidth: 904,        // 1024 - 60*2 (padding horizontal)
-      maxLines: 3,
-      baseFontSize: 52,
-      minFontSize: 34,
-      fontFamily: 'Impact'
+      maxWidth: 860,        // 1024 - 82*2 (8% padding cada lado)
+      maxLines: 4,          // Hasta 4 líneas para títulos largos
+      baseFontSize: 54,     // Tamaño inicial
+      minFontSize: 28,      // Mínimo más pequeño para garantizar que quepa todo
+      fontFamily: 'Montserrat'  // Fuente profesional moderna
     });
     
     const { fontSize: titleFontSize, lines: titleLines } = titleLayout;
@@ -65,7 +44,35 @@ async function generateFacebookRedCover(imageBuffer, newsData = {}, newsId = nul
       console.log(`[FB RedCover] 📝 Contenido: "${titleLines.join(' / ')}"}`);
     }
     
-    // 1. Crear canvas con fondo rojo degradado
+    // ═══════════════════════════════════════════════════════════════
+    // 1. CALCULAR ALTURA DINÁMICA DEL BANNER SEGÚN EL TEXTO
+    // ═══════════════════════════════════════════════════════════════
+    const lineHeight = titleFontSize * 1.15; // 115% del fontSize
+    const textHeight = titleLines.length * lineHeight;
+    
+    // Padding vertical dentro del banner
+    const paddingTop = 30;    // Margen superior dentro del banner
+    const paddingBottom = 40; // Margen inferior dentro del banner
+    
+    // Calcular altura del banner basada en el texto
+    let bannerHeight = Math.ceil(textHeight + paddingTop + paddingBottom);
+    
+    // Límite máximo: 45% de la imagen (para no tapar demasiado)
+    const maxBannerHeight = Math.floor(canvasSize * 0.45);
+    // Límite mínimo: al menos 15% para que se vea bien
+    const minBannerHeight = Math.floor(canvasSize * 0.15);
+    
+    // Aplicar límites
+    bannerHeight = Math.max(minBannerHeight, Math.min(bannerHeight, maxBannerHeight));
+    
+    // Calcular posición Y del banner (desde dónde empieza)
+    const bannerY = canvasSize - bannerHeight;
+    
+    console.log(`[FB RedCover] 📐 Banner dinámico: ${bannerHeight}px (${Math.round(bannerHeight/canvasSize*100)}% del canvas)`);
+    
+    // ═══════════════════════════════════════════════════════════════
+    // 2. CREAR CANVAS BASE (fondo rojo degradado para toda la imagen)
+    // ═══════════════════════════════════════════════════════════════
     const gradient = Buffer.from(
       `<svg width="${canvasSize}" height="${canvasSize}">
         <defs>
@@ -78,35 +85,33 @@ async function generateFacebookRedCover(imageBuffer, newsData = {}, newsId = nul
       </svg>`
     );
     
-    // 2. Procesar imagen de la noticia (centrada, cover)
+    // ═══════════════════════════════════════════════════════════════
+    // 3. PROCESAR IMAGEN DE FONDO (ajustada al área libre ARRIBA del banner)
+    // ═══════════════════════════════════════════════════════════════
+    // La imagen ocupa SOLO el espacio desde y=0 hasta y=bannerY
+    // Así el banner NO tapa la parte importante de la foto
+    const imageAreaHeight = bannerY; // Espacio disponible para la imagen
+    
     const processedImage = await sharp(imageBuffer)
-      .resize(canvasSize, canvasSize, {
+      .resize(canvasSize, imageAreaHeight, {
         fit: 'cover',
-        position: 'center'
+        position: 'center' // Centra la parte más importante de la imagen
       })
       .toBuffer();
     
-    // 3. Crear overlay oscuro para la imagen (10% oscuridad)
+    console.log(`[FB RedCover] 🖼️ Imagen ajustada: ${canvasSize}x${imageAreaHeight}px (área libre arriba del banner)`);
+    
+    // 4. Crear overlay oscuro SOLO para el área de la imagen (no el banner)
     const imageOverlay = Buffer.from(
-      `<svg width="${canvasSize}" height="${canvasSize}">
-        <rect width="${canvasSize}" height="${canvasSize}" fill="rgba(0,0,0,0.1)" />
+      `<svg width="${canvasSize}" height="${imageAreaHeight}">
+        <rect width="${canvasSize}" height="${imageAreaHeight}" fill="rgba(0,0,0,0.1)" />
       </svg>`
     );
     
-    // 4. Procesar logo manteniendo transparencia (PNG con canal alpha)
-    const logoWidth = 160;
-    const logoMargin = 40;
-    const logoBuffer = await sharp(logoPath)
-      .resize({ width: logoWidth, fit: 'inside' })
-      .png() // Mantener formato PNG con transparencia
-      .toBuffer();
-    
-    // 5. Crear banner negro translúcido inferior con título multilínea
-    const bannerHeight = Math.floor(canvasSize * 0.23); // 23% del alto
-    const bannerY = canvasSize - bannerHeight;
-    
-    // Calcular posición vertical para centrar el texto multilínea
-    const lineHeight = titleFontSize * 1.15; // 115% del fontSize
+    // ═══════════════════════════════════════════════════════════════
+    // 5. CREAR BANNER NEGRO CON TEXTO CENTRADO
+    // ═══════════════════════════════════════════════════════════════
+    // Posición vertical del texto: centrado dentro del banner
     const totalTextHeight = titleLines.length * lineHeight;
     const textStartY = bannerY + (bannerHeight - totalTextHeight) / 2 + lineHeight * 0.8;
     
@@ -121,43 +126,47 @@ async function generateFacebookRedCover(imageBuffer, newsData = {}, newsId = nul
     
     const banner = Buffer.from(
       `<svg width="${canvasSize}" height="${canvasSize}" xmlns="http://www.w3.org/2000/svg">
-        <rect x="0" y="${bannerY}" width="${canvasSize}" height="${bannerHeight}" fill="rgba(0,0,0,0.65)" />
+        <rect x="0" y="${bannerY}" width="${canvasSize}" height="${bannerHeight}" fill="rgba(0,0,0,0.70)" />
         ${titleLines.length > 0 ? `
           <text
             font-size="${titleFontSize}"
-            font-family="Impact, Arial Black, sans-serif"
-            font-weight="900"
+            font-family="Montserrat, Arial Black, Helvetica Neue, sans-serif"
+            font-weight="800"
             fill="#FFFFFF"
-            style="letter-spacing: 0.5px;"
+            style="letter-spacing: 0.5px; text-shadow: 2px 2px 6px rgba(0,0,0,0.7);"
           >${textLines}
           </text>
         ` : ''}
       </svg>`
     );
     
-    // 6. Crear marca de agua discreta
+    // 6. Crear marca de agua discreta (posicionada encima del banner)
+    const watermarkY = bannerY - 15; // 15px encima del banner
     const watermark = Buffer.from(
       `<svg width="${canvasSize}" height="${canvasSize}">
         <text
-          x="${canvasSize - 20}" y="${canvasSize - 20}"
+          x="${canvasSize - 20}" y="${watermarkY}"
           text-anchor="end"
-          font-size="18"
+          font-size="16"
           font-family="Arial"
-          fill="rgba(255,255,255,0.25)"
+          fill="rgba(255,255,255,0.35)"
         >
           LEVANTATECUBA.COM
         </text>
       </svg>`
     );
     
-    // 7. Componer todas las capas
+    // ═══════════════════════════════════════════════════════════════
+    // 7. COMPONER TODAS LAS CAPAS
+    // ═══════════════════════════════════════════════════════════════
+    // Imagen va en top:0 (ocupa solo hasta bannerY)
+    // Banner va desde bannerY hasta el final (no se superponen)
     let composite = sharp(gradient)
       .composite([
-        { input: processedImage, top: 0, left: 0, blend: 'over' }, // Imagen de fondo
-        { input: imageOverlay, top: 0, left: 0, blend: 'over' },   // Overlay oscuro
-        { input: logoBuffer, top: logoMargin, left: logoMargin, blend: 'over' }, // Logo con transparencia
-        { input: banner, top: 0, left: 0, blend: 'over' },         // Banner con título
-        { input: watermark, top: 0, left: 0, blend: 'over' }       // Marca de agua
+        { input: processedImage, top: 0, left: 0, blend: 'over' }, // 1. Imagen (solo área superior)
+        { input: imageOverlay, top: 0, left: 0, blend: 'over' },   // 2. Overlay oscuro (solo imagen)
+        { input: banner, top: 0, left: 0, blend: 'over' },         // 3. Banner negro con título
+        { input: watermark, top: 0, left: 0, blend: 'over' }       // 4. Marca de agua
       ])
       .jpeg({ quality: 90 });
     
@@ -193,31 +202,32 @@ async function generateFacebookRedCover(imageBuffer, newsData = {}, newsId = nul
 }
 
 /**
- * Divide un título en múltiples líneas sin recortar texto, ajustando tamaño de fuente
+ * [LC-FB-COVER] Divide un título en múltiples líneas SIN RECORTAR NUNCA
+ * Reduce dinámicamente el tamaño de fuente hasta que TODO el texto quepa
  * @param {string} title - Título original de la noticia
  * @param {Object} options - Opciones de layout
  * @returns {Object} {fontSize, lines} - Tamaño de fuente y array de líneas
  */
 function wrapTextForBanner(title, options = {}) {
   if (!title || typeof title !== 'string') {
-    return { fontSize: options.baseFontSize || 50, lines: [] };
+    return { fontSize: options.baseFontSize || 54, lines: [] };
   }
   
   const {
-    maxWidth = 904,           // Ancho útil (1024 - 60*2)
-    maxLines = 3,             // Máximo de líneas preferidas
-    baseFontSize = 52,        // Tamaño inicial
-    minFontSize = 34,         // Tamaño mínimo
-    fontFamily = 'Impact'     // Fuente (Impact es más condensada)
+    maxWidth = 860,           // Ancho útil con 8% padding cada lado (1024 - 164)
+    maxLines = 4,             // Máximo de líneas permitidas
+    baseFontSize = 54,        // Tamaño inicial grande para impacto visual
+    minFontSize = 28,         // Mínimo absoluto (seguirá siendo legible)
+    fontFamily = 'Montserrat' // Fuente moderna del diseño
   } = options;
   
-  // 1) Convertir a MAYÚSCULAS (sin recortar)
+  // 1) Convertir a MAYÚSCULAS (NUNCA recortar)
   const text = title.trim().toUpperCase();
   
-  // 2) Estimar ancho promedio por carácter según la fuente
-  // Impact es condensada, usamos ratio conservador para evitar cortes
-  // Añadimos margen de seguridad (0.58 en lugar de 0.55) para mayúsculas
-  const charWidthRatio = fontFamily.includes('Impact') ? 0.58 : 0.65;
+  // 2) Ratio de ancho por carácter según fuente (conservador para MAYÚSCULAS)
+  // Montserrat/Arial Black uppercase: ~0.68-0.72 del fontSize
+  // Usamos 0.70 como valor seguro
+  const charWidthRatio = fontFamily.toLowerCase().includes('montserrat') ? 0.70 : 0.72;
   
   // 3) Función para dividir texto en líneas dado un fontSize
   const splitIntoLines = (fontSize) => {
@@ -232,13 +242,11 @@ function wrapTextForBanner(title, options = {}) {
       const testLine = currentLine ? `${currentLine} ${word}` : word;
       const estimatedWidth = testLine.length * avgCharWidth;
       
-      // Si la línea de prueba excede el ancho Y ya tenemos contenido,
-      // guardar la línea actual y empezar una nueva con esta palabra
+      // Si excede el ancho Y ya tenemos contenido, pasar a nueva línea
       if (estimatedWidth > maxWidth && currentLine) {
         lines.push(currentLine);
         currentLine = word;
       } else {
-        // La palabra cabe, añadirla a la línea actual
         currentLine = testLine;
       }
     }
@@ -251,7 +259,7 @@ function wrapTextForBanner(title, options = {}) {
     return lines;
   };
   
-  // 4) Intentar con diferentes tamaños de fuente (de mayor a menor)
+  // 4) Reducir fontSize iterativamente hasta que el texto quepa en maxLines
   for (let fontSize = baseFontSize; fontSize >= minFontSize; fontSize -= 2) {
     const lines = splitIntoLines(fontSize);
     
@@ -261,11 +269,23 @@ function wrapTextForBanner(title, options = {}) {
     }
   }
   
-  // 5) Si ni siquiera con fontSize mínimo cabe, usar minFontSize de todos modos
-  // IMPORTANTE: Devolvemos TODAS las líneas, nunca recortamos el texto
-  const lines = splitIntoLines(minFontSize);
+  // 5) Si con minFontSize aún no cabe, seguir reduciendo hasta que quepa
+  // NUNCA truncar - preferimos fuente más pequeña a perder contenido
+  let fontSize = minFontSize;
+  let lines = splitIntoLines(fontSize);
   
-  return { fontSize: minFontSize, lines };
+  // Reducir aún más si es necesario (hasta 18px como mínimo absoluto)
+  while (lines.length > maxLines && fontSize > 18) {
+    fontSize -= 2;
+    lines = splitIntoLines(fontSize);
+  }
+  
+  // Si aún no cabe con 18px, permitir más líneas (hasta 6)
+  if (lines.length > maxLines) {
+    console.log(`[FB Cover] ℹ️ Título muy largo: ${lines.length} líneas con fontSize=${fontSize}px`);
+  }
+  
+  return { fontSize, lines };
 }
 
 /**
@@ -665,10 +685,61 @@ async function publishToFacebook({ message, imageUrl, imagePath, userToken }) {
     }
     
     // ==========================================
-    // MÉTODO 3: FALLBACK CON IMAGEN GENÉRICA (último recurso)
+    // MÉTODO 3: DESCARGAR IMAGEN + GENERAR PORTADA ROJA
+    // ==========================================
+    if (!fbPostId && imageUrl) {
+      console.log(`[FB Publisher] Método 3: Descargando imagen para generar portada roja...`);
+      
+      try {
+        // Intentar descargar la imagen desde la URL
+        const imageResponse = await fetch(imageUrl, { timeout: 15000 });
+        
+        if (imageResponse.ok) {
+          const imageBuffer = await imageResponse.buffer();
+          console.log(`[FB Publisher] 📥 Imagen descargada: ${Math.round(imageBuffer.length/1024)}KB`);
+          
+          // Generar portada roja con la imagen descargada
+          const { buffer: coverBuffer } = await generateFacebookRedCover(
+            imageBuffer,
+            { titulo: message.split('\n')[0] || 'LevántateCuba' }, // Usar primera línea como título
+            null
+          );
+          
+          console.log(`[FB Publisher] 🎨 Portada roja generada: ${Math.round(coverBuffer.length/1024)}KB`);
+          
+          // Publicar con la portada generada
+          const formData = new FormData();
+          formData.append('source', coverBuffer, { filename: 'cover.jpg' });
+          formData.append('caption', message.trim());
+          formData.append('access_token', finalPageToken);
+          
+          const response = await fetch(apiUrl, {
+            method: "POST",
+            body: formData,
+            headers: formData.getHeaders(),
+            timeout: 60000
+          });
+          
+          const data = await response.json();
+          
+          if (response.ok && data.id) {
+            fbPostId = data.id;
+            usedWatermark = true;
+            console.log(`[FB Publisher] ✅ Foto publicada con portada roja generada. fbPostId=${fbPostId}`);
+          } else {
+            console.error(`[FB Publisher] ❌ Error publicando portada roja:`, data.error?.message);
+          }
+        }
+      } catch (downloadError) {
+        console.error(`[FB Publisher] ⚠️ Error descargando imagen: ${downloadError.message}`);
+      }
+    }
+    
+    // ==========================================
+    // MÉTODO 4: FALLBACK CON IMAGEN GENÉRICA (último recurso)
     // ==========================================
     if (!fbPostId) {
-      console.log(`[FB Publisher] Método 3: Fallback con imagen genérica`);
+      console.log(`[FB Publisher] Método 4: Fallback con imagen genérica`);
       
       // Buscar imagen genérica de fallback
       const fallbackOptions = [
@@ -694,10 +765,10 @@ async function publishToFacebook({ message, imageUrl, imagePath, userToken }) {
         throw new Error("No se pudo publicar: todos los métodos fallaron y no hay imagen de fallback");
       }
       
-      // Leer archivo directamente (portada roja ya debe estar generada o es fallback genérico)
+      // Leer archivo directamente
       let fileBuffer = await fs.promises.readFile(localFile);
       console.log(`[FB Publisher] 📎 Usando imagen de fallback genérico`);
-      usedWatermark = true; // Marcador de que se usó archivo local
+      usedWatermark = true;
       
       // Construir FormData correctamente para multipart
       const formData = new FormData();
@@ -751,7 +822,7 @@ async function publishToFacebook({ message, imageUrl, imagePath, userToken }) {
       }
       
       fbPostId = data.id;
-      console.log(`[FB Publisher] ✅ Foto publicada vía fallback genérico con portada roja. fbPostId=${fbPostId}`);
+      console.log(`[FB Publisher] ✅ Foto publicada vía fallback genérico (imagen estática). fbPostId=${fbPostId}`);
     }
     
     // ==========================================
@@ -771,6 +842,139 @@ async function publishToFacebook({ message, imageUrl, imagePath, userToken }) {
       error.cause = { code: "UNKNOWN_ERROR", httpStatus: 500 };
     }
     throw error;
+  }
+}
+
+/**
+ * Publica una foto en Facebook Stories
+ * NOTA: Stories requiere subir la foto como "unpublished" primero
+ * @param {Object} options
+ * @param {Buffer} options.imageBuffer - Buffer de la imagen a publicar
+ * @param {string} [options.imagePath] - Ruta local de la imagen (alternativa a buffer)
+ * @param {string} [options.userToken] - User token para resolver PAGE_TOKEN
+ * @returns {Promise<{storyId: string, success: boolean}>}
+ */
+async function publishToFacebookStory({ imageBuffer, imagePath, userToken }) {
+  console.log(`\n[FB Story] === PUBLICANDO EN STORY ===`);
+  
+  // Obtener configuración validada
+  let config;
+  try {
+    config = getFacebookConfig();
+  } catch (error) {
+    console.error("[FB Story] ❌ Error de configuración:", error.message);
+    return { success: false, error: error.message };
+  }
+  
+  const { appId, appSecret, graphVersion, pageId, pageToken: envPageToken } = config;
+  
+  // Determinar token a usar
+  let finalPageToken = userToken || envPageToken;
+  
+  if (!finalPageToken) {
+    console.error("[FB Story] ❌ No hay token disponible");
+    return { success: false, error: "No hay token disponible" };
+  }
+  
+  // Verificar si necesitamos resolver PAGE_TOKEN desde USER_TOKEN
+  const tokenInfo = await debugToken(appId, appSecret, finalPageToken);
+  
+  if (!tokenInfo.isValid) {
+    console.error("[FB Story] ❌ Token inválido o expirado");
+    return { success: false, error: "Token inválido" };
+  }
+  
+  // Si el token es de usuario, obtener PAGE_TOKEN
+  if (tokenInfo.profileId !== pageId) {
+    console.log("[FB Story] Token es USER_TOKEN, resolviendo PAGE_TOKEN...");
+    const pageToken = await getPageTokenFromUserToken(finalPageToken, pageId);
+    
+    if (!pageToken) {
+      console.error("[FB Story] ❌ No se pudo obtener PAGE_TOKEN");
+      return { success: false, error: "No se pudo obtener PAGE_TOKEN" };
+    }
+    
+    finalPageToken = pageToken;
+  }
+  
+  // Obtener el buffer de la imagen
+  let photoBuffer = imageBuffer;
+  if (!photoBuffer && imagePath) {
+    try {
+      photoBuffer = await fs.promises.readFile(imagePath);
+      console.log(`[FB Story] 📷 Imagen cargada desde: ${imagePath} (${photoBuffer.length} bytes)`);
+    } catch (err) {
+      console.error(`[FB Story] ❌ No se pudo leer la imagen: ${err.message}`);
+      return { success: false, error: "No se pudo leer la imagen" };
+    }
+  }
+  
+  if (!photoBuffer) {
+    console.error("[FB Story] ❌ No hay imagen para publicar");
+    return { success: false, error: "No hay imagen para publicar" };
+  }
+  
+  try {
+    // PASO 1: Subir foto como "unpublished" 
+    console.log(`[FB Story] 📤 Subiendo foto como unpublished...`);
+    
+    const uploadUrl = `https://graph.facebook.com/${graphVersion}/${pageId}/photos`;
+    const uploadForm = new FormData();
+    uploadForm.append('source', photoBuffer, { filename: 'story.jpg', contentType: 'image/jpeg' });
+    uploadForm.append('published', 'false'); // CRÍTICO: debe ser unpublished
+    uploadForm.append('access_token', finalPageToken);
+    
+    const uploadResponse = await fetch(uploadUrl, {
+      method: "POST",
+      body: uploadForm,
+      headers: uploadForm.getHeaders(),
+      timeout: 60000
+    });
+    
+    const uploadData = await uploadResponse.json();
+    
+    if (!uploadResponse.ok || !uploadData.id) {
+      const errorMsg = uploadData.error?.message || "Error subiendo foto";
+      console.error(`[FB Story] ❌ Error subiendo foto: ${errorMsg}`);
+      return { success: false, error: errorMsg };
+    }
+    
+    const photoId = uploadData.id;
+    console.log(`[FB Story] ✅ Foto subida como unpublished. photoId=${photoId}`);
+    
+    // PASO 2: Crear Story con la foto unpublished
+    const storyUrl = `https://graph.facebook.com/${graphVersion}/${pageId}/photo_stories`;
+    
+    console.log(`[FB Story] 📱 Creando Story con photoId=${photoId}...`);
+    
+    const storyData = new URLSearchParams({
+      photo_id: photoId,
+      access_token: finalPageToken
+    });
+    
+    const storyResponse = await fetch(storyUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: storyData.toString(),
+      timeout: 30000
+    });
+    
+    const storyResult = await storyResponse.json();
+    
+    if (storyResponse.ok && storyResult.post_id) {
+      console.log(`[FB Story] ✅ Story publicada exitosamente! storyId=${storyResult.post_id}`);
+      return { success: true, storyId: storyResult.post_id };
+    } else {
+      const errorCode = storyResult.error?.code || storyResponse.status;
+      const errorMsg = storyResult.error?.message || "Error creando Story";
+      
+      console.error(`[FB Story] ❌ Error ${errorCode}: ${errorMsg}`);
+      return { success: false, error: errorMsg, code: errorCode };
+    }
+    
+  } catch (error) {
+    console.error(`[FB Story] ❌ Error de red: ${error.message}`);
+    return { success: false, error: error.message };
   }
 }
 
@@ -1340,15 +1544,43 @@ async function publishNewsToFacebook(news, options = {}) {
     });
   }
   
-  // Si facebook_status es 'published' o 'sharing', no publicar
-  if (news.facebook_status === 'published' || news.facebook_status === 'sharing') {
-    console.warn(`[FB Publisher] ⚠️ Noticia ${news._id} tiene facebook_status=${news.facebook_status}`);
-    throw new Error(`Esta noticia ya está ${news.facebook_status === 'sharing' ? 'siendo publicada' : 'publicada'} en Facebook`, {
+  // Si facebook_status es 'published', no publicar
+  if (news.facebook_status === 'published') {
+    console.warn(`[FB Publisher] ⚠️ Noticia ${news._id} ya está publicada en Facebook`);
+    throw new Error('Esta noticia ya está publicada en Facebook', {
       cause: { 
-        code: news.facebook_status === 'sharing' ? 'PUBLISHING_IN_PROGRESS' : 'ALREADY_PUBLISHED', 
+        code: 'ALREADY_PUBLISHED', 
         httpStatus: 409 
       }
     });
+  }
+  
+  // Si facebook_status es 'sharing', verificar si el lock expiró
+  // EXCEPCIÓN: Si es autoPublish o manualPublish, el llamador ya puso el lock, no verificar
+  if (news.facebook_status === 'sharing' && !options.autoPublish && !options.manualPublish) {
+    const lockAge = news.facebook_sharing_since 
+      ? (Date.now() - new Date(news.facebook_sharing_since).getTime()) / 1000 / 60 
+      : 999; // Si no hay timestamp, considerar expirado
+    
+    // Lock tiene más de 10 minutos → expirado, liberar y continuar
+    if (lockAge > 10) {
+      console.warn(`[FB Publisher] ⚠️ Lock de noticia ${news._id} expirado (${lockAge.toFixed(1)} min), liberando...`);
+      await News.findByIdAndUpdate(news._id, {
+        facebook_status: 'error',
+        facebook_last_error: 'Lock de publicación expirado (proceso anterior no completó correctamente)',
+        facebook_sharing_since: null
+      });
+      // Continuar con el flujo de publicación (no lanzar error)
+    } else {
+      // Lock reciente (< 10 min) → proceso activo, rechazar
+      console.warn(`[FB Publisher] ⚠️ Noticia ${news._id} tiene lock activo (${lockAge.toFixed(1)} min)`);
+      throw new Error('Esta noticia ya está siendo publicada en Facebook', {
+        cause: { 
+          code: 'PUBLISHING_IN_PROGRESS', 
+          httpStatus: 409 
+        }
+      });
+    }
   }
   
   // Construir URL pública de la noticia
@@ -1401,6 +1633,9 @@ async function publishNewsToFacebook(news, options = {}) {
   let originalImagePath = null;
   const relativeImagePath = news.imagen || news.cover || news.image;
   
+  console.log(`[FB DEBUG] relativeImagePath: ${relativeImagePath}`);
+  console.log(`[FB DEBUG] process.cwd(): ${process.cwd()}`);
+  
   if (relativeImagePath && !relativeImagePath.startsWith('http')) {
     // Ruta absoluta en el filesystem del servidor
     if (relativeImagePath.startsWith('/uploads/')) {
@@ -1409,15 +1644,30 @@ async function publishNewsToFacebook(news, options = {}) {
       originalImagePath = path.join(__dirname, '..', relativeImagePath);
     } else if (relativeImagePath.startsWith('/media/')) {
       // Soporte para /media/news/:id/cover.avif
-      originalImagePath = path.join(process.cwd(), 'public', relativeImagePath);
-      // Si es AVIF, intentar WebP como fallback local
+      // Quitar el / inicial para path.join correcto
+      const cleanPath = relativeImagePath.startsWith('/') ? relativeImagePath.slice(1) : relativeImagePath;
+      originalImagePath = path.join(process.cwd(), 'public', cleanPath);
+      console.log(`[FB DEBUG] originalImagePath construido: ${originalImagePath}`);
+      console.log(`[FB DEBUG] Existe archivo: ${fs.existsSync(originalImagePath)}`);
+      
+      // Si es AVIF, intentar WebP o JPG como fallback local
       if (originalImagePath.endsWith('.avif')) {
         const webpPath = originalImagePath.replace(/\.avif$/i, '.webp');
+        const jpgPath = originalImagePath.replace(/\.avif$/i, '.jpg');
+        
+        console.log(`[FB DEBUG] Buscando alternativas a AVIF...`);
+        console.log(`[FB DEBUG] WebP path: ${webpPath} - existe: ${fs.existsSync(webpPath)}`);
+        console.log(`[FB DEBUG] JPG path: ${jpgPath} - existe: ${fs.existsSync(jpgPath)}`);
+        
         if (fs.existsSync(webpPath)) {
           originalImagePath = webpPath;
-          console.log(`[FB Publisher] Usando WebP local en lugar de AVIF: ${originalImagePath}`);
+          console.log(`[FB Publisher] ✅ Usando WebP local: ${originalImagePath}`);
+        } else if (fs.existsSync(jpgPath)) {
+          originalImagePath = jpgPath;
+          console.log(`[FB Publisher] ✅ Usando JPG local: ${originalImagePath}`);
         } else {
-          originalImagePath = null; // AVIF no soportado, no hay WebP local
+          console.log(`[FB DEBUG] ❌ No hay alternativa a AVIF, intentando AVIF directo`);
+          // Mantener AVIF y ver si sharp puede procesarlo
         }
       }
     }
@@ -1520,12 +1770,124 @@ async function publishNewsToFacebook(news, options = {}) {
     console.error('[FB Comment] ❌ Error publicando comentario (no crítico):', commentError.message);
   }
   
-  return { fbPostId, permalink };
+  // ========================================
+  // PUBLICAR EN FACEBOOK STORIES
+  // ========================================
+  // Subir la misma imagen (portada roja) como Story
+  let storyResult = { success: false };
+  try {
+    // Usar la misma imagen que se usó para el post
+    if (imagePath && fs.existsSync(imagePath)) {
+      console.log(`[FB Publisher] 📱 Publicando en Stories con imagen: ${imagePath}`);
+      storyResult = await publishToFacebookStory({
+        imagePath: imagePath,
+        userToken: options.userToken
+      });
+      
+      if (storyResult.success) {
+        console.log(`[FB Publisher] ✅ También publicado en Stories: ${storyResult.storyId}`);
+      }
+    } else {
+      console.log(`[FB Publisher] ⚠️ No hay imagen local para Stories (imagePath: ${imagePath})`);
+    }
+  } catch (storyError) {
+    // No fallar la publicación principal si el Story falla
+    console.error('[FB Story] ❌ Error publicando en Story (no crítico):', storyError.message);
+  }
+  
+  return { 
+    fbPostId, 
+    permalink,
+    storyId: storyResult.storyId || null,
+    storyPublished: storyResult.success
+  };
+}
+
+// ================================================================================
+// [LC-FB-COVER] FUNCIÓN DE TEST - Genera portadas de prueba en disco
+// ================================================================================
+
+/**
+ * Genera portadas de prueba para verificar que el texto no se corta
+ * Ejecutar: node -e "require('./server/services/facebookPublisher').testFacebookCovers()"
+ * @returns {Promise<void>}
+ */
+async function testFacebookCovers() {
+  const testDir = path.join(process.cwd(), 'server', 'tmp', 'fb_covers_test');
+  
+  // Crear directorio de test
+  if (!fs.existsSync(testDir)) {
+    fs.mkdirSync(testDir, { recursive: true });
+  }
+  
+  // Títulos de prueba
+  const testTitles = [
+    {
+      name: 'short',
+      title: 'Cuba denuncia bloqueo de EEUU'
+    },
+    {
+      name: 'medium',
+      title: 'Ferrer asistirá a evento en Washington por el Día Internacional de los Derechos Humanos'
+    },
+    {
+      name: 'long',
+      title: 'El régimen cubano intensifica la represión contra activistas y periodistas independientes mientras la comunidad internacional exige liberación de presos políticos y respeto a los derechos humanos fundamentales'
+    }
+  ];
+  
+  // Crear imagen de prueba (roja sólida 1024x1024)
+  const testImageBuffer = await sharp({
+    create: {
+      width: 1024,
+      height: 1024,
+      channels: 3,
+      background: { r: 100, g: 50, b: 50 }
+    }
+  }).jpeg().toBuffer();
+  
+  console.log('\n[FB Cover Test] ========================================');
+  console.log('[FB Cover Test] Generando portadas de prueba...');
+  console.log('[FB Cover Test] ========================================\n');
+  
+  for (const test of testTitles) {
+    try {
+      const { buffer } = await generateFacebookRedCover(
+        testImageBuffer,
+        { titulo: test.title },
+        `test-${test.name}`
+      );
+      
+      const outputPath = path.join(testDir, `cover-${test.name}.jpg`);
+      await fs.promises.writeFile(outputPath, buffer);
+      
+      // Obtener info del layout
+      const layout = wrapTextForBanner(test.title, {
+        maxWidth: 820,
+        maxLines: 3,
+        baseFontSize: 50,
+        minFontSize: 36,
+        fontFamily: 'Arial Black'
+      });
+      
+      console.log(`[FB Cover] Test ${test.name} OK (fontSize=${layout.fontSize}, lines=${layout.lines.length})`);
+      console.log(`           → ${outputPath}`);
+      console.log(`           → Líneas: ${layout.lines.join(' | ')}\n`);
+      
+    } catch (error) {
+      console.error(`[FB Cover] Test ${test.name} FAILED: ${error.message}`);
+    }
+  }
+  
+  console.log('[FB Cover Test] ========================================');
+  console.log(`[FB Cover Test] Portadas guardadas en: ${testDir}`);
+  console.log('[FB Cover Test] ========================================\n');
 }
 
 module.exports = {
   publishToFacebook,
   publishNewsToFacebook,
+  publishToFacebookStory,
   buildNewsPublicUrl,
   buildAbsoluteImageUrl,
   debugToken,
@@ -1533,7 +1895,9 @@ module.exports = {
   getPostPermalink,
   deletePost,
   getPost,
-  ERROR_MESSAGES
+  ERROR_MESSAGES,
+  testFacebookCovers,
+  generateFacebookRedCover
 };
 
 /**

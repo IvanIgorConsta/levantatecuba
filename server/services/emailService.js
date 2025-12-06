@@ -19,7 +19,17 @@ class EmailService {
   init() {
     try {
       // Verificar si las credenciales SMTP están configuradas
-      const { EMAIL_HOST, EMAIL_USER, EMAIL_PASS } = process.env;
+      const { EMAIL_HOST, EMAIL_USER, EMAIL_PASS, EMAIL_PORT, EMAIL_SECURE } = process.env;
+      
+      // Debug: mostrar qué variables se están leyendo (sin password)
+      console.log('[Mail] 🔧 Configuración SMTP detectada:', {
+        host: EMAIL_HOST || 'NOT SET',
+        port: EMAIL_PORT || 'NOT SET (default 465)',
+        secure: EMAIL_SECURE || 'NOT SET',
+        user: EMAIL_USER || 'NOT SET',
+        passLength: EMAIL_PASS ? EMAIL_PASS.length : 0,
+        passLast2: EMAIL_PASS ? '**' + EMAIL_PASS.slice(-2) : 'N/A'
+      });
       
       if (!EMAIL_HOST || !EMAIL_USER || !EMAIL_PASS) {
         console.warn('⚠️ EmailService deshabilitado: faltan credenciales SMTP (EMAIL_HOST, EMAIL_USER, EMAIL_PASS)');
@@ -34,23 +44,34 @@ class EmailService {
         return;
       }
 
-      // Usar createTransport (no createTransporter)
+      // Configuración de puerto y seguridad
+      const port = Number(EMAIL_PORT) || 465;
+      // secure=true para puerto 465 (SSL), false para 587 (STARTTLS)
+      const secure = EMAIL_SECURE === 'true' ? true : (EMAIL_SECURE === 'false' ? false : port === 465);
+      
+      console.log('[Mail] 🔧 Usando puerto:', port, '| secure:', secure);
+      
       this.transporter = nodemailer.createTransport({
         host: EMAIL_HOST,
-        port: Number(process.env.EMAIL_PORT) || 465,
-        secure: true, // true para puerto 465 SSL
+        port,
+        secure,
         auth: {
           user: EMAIL_USER,
           pass: EMAIL_PASS
         },
-        // Configuraciones adicionales para mejor compatibilidad
+        // Configuraciones para mejor compatibilidad con Hostinger
         tls: {
-          rejectUnauthorized: false // Solo si hay problemas de certificados
-        }
+          rejectUnauthorized: false,
+          minVersion: 'TLSv1.2'
+        },
+        // Timeout más largo para conexiones lentas
+        connectionTimeout: 10000,
+        greetingTimeout: 10000,
+        socketTimeout: 15000
       });
 
       this.enabled = true;
-      console.log('✅ EmailService inicializado con Hostinger SMTP');
+      console.log('[Mail] ✅ EmailService inicializado con Hostinger SMTP');
     } catch (error) {
       console.error('❌ Error inicializando EmailService:', error.message);
       this.enabled = false;
@@ -63,17 +84,55 @@ class EmailService {
   async verifyConnection() {
     try {
       if (!this.enabled || !this.transporter) {
-        console.log('ℹ️ EmailService deshabilitado - verificación omitida');
-        return false;
+        console.log('[Mail] ℹ️ EmailService deshabilitado - verificación omitida');
+        return { connected: false, reason: 'disabled' };
       }
       
       await this.transporter.verify();
-      console.log('✅ Conexión SMTP verificada');
-      return true;
+      console.log('[Mail] ✅ SMTP connected successfully');
+      return { connected: true };
     } catch (error) {
-      console.error('❌ Error verificando SMTP:', error.message);
-      return false;
+      console.error('[Mail] ❌ SMTP connection error:', error.message);
+      console.error('[Mail] Error code:', error.code);
+      console.error('[Mail] Response:', error.response);
+      return { 
+        connected: false, 
+        reason: error.message,
+        code: error.code,
+        response: error.response
+      };
     }
+  }
+
+  /**
+   * Obtener configuración SMTP (sin exponer contraseña)
+   */
+  getConfig() {
+    return {
+      enabled: this.enabled,
+      host: process.env.EMAIL_HOST || 'not set',
+      port: process.env.EMAIL_PORT || 'not set',
+      secure: process.env.EMAIL_SECURE || 'not set',
+      user: process.env.EMAIL_USER || 'not set',
+      passConfigured: !!process.env.EMAIL_PASS,
+      adminEmail: this.getAdminEmail()
+    };
+  }
+
+  /**
+   * Obtener email del administrador del sistema para notificaciones internas
+   * NOTA: Plan Hostinger actual solo permite 1 buzón (soporte@)
+   * Si se adquiere otro buzón, cambiar SYSTEM_ADMIN_EMAIL en .env
+   */
+  getAdminEmail() {
+    return process.env.SYSTEM_ADMIN_EMAIL || 'soporte@levantatecuba.com';
+  }
+
+  /**
+   * Obtener dirección FROM para emails salientes (siempre soporte@)
+   */
+  getFromAddress() {
+    return process.env.EMAIL_FROM || '"LevántateCuba Soporte" <soporte@levantatecuba.com>';
   }
 
   /**
@@ -103,7 +162,7 @@ class EmailService {
       }
 
       const mailOptions = {
-        from: process.env.EMAIL_FROM || '"LevántateCuba" <noreply@levantatecuba.com>',
+        from: this.getFromAddress(),
         to,
         subject,
         html,

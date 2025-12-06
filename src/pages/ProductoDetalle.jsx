@@ -299,9 +299,35 @@ export default function ProductoDetalle() {
     if (quantity > 1) setQuantity(quantity - 1);
   };
 
+  // [Override] Títulos y descripciones personalizadas por producto
+  const PRODUCT_OVERRIDES = {
+    'camiseta-de-manga-corta-unisex': {
+      title: 'T-Shirt unisex de manga corta',
+      descriptionHtml: `
+        <p>Esta T-Shirt está diseñada para ofrecer comodidad superior y una apariencia impecable durante todo el día. Su tejido suave y ligero proporciona un ajuste equilibrado, ideal tanto para uso casual como para actividades cotidianas.</p>
+        <p><strong>Características técnicas:</strong></p>
+        <ul>
+          <li>100% algodón peinado e hilado en anillo</li>
+          <li>Los tonos Heather incluyen mezcla de poliéster</li>
+          <li>Peso del tejido: 142 g/m² (4.2 oz/yd²)</li>
+          <li>Tela preencogida para mayor durabilidad</li>
+          <li>Costuras laterales y tapeta de hombro a hombro</li>
+          <li>Producto base fabricado en Nicaragua, México, Honduras o EE. UU.</li>
+        </ul>
+        <p><strong>Cumplimiento y garantía:</strong></p>
+        <p>Este producto cumple con el Reglamento General de Seguridad de los Productos (GPSR) de la Unión Europea. Para consultas relacionadas con la seguridad del producto, puedes contactar a nuestro representante autorizado en gpsr@sindenventures.com o escribirnos a: Markou Evgenikou 11, Mesa Geitonia, 4002, Limassol, Cyprus.</p>
+      `
+    }
+  };
+
+  // Obtener override si existe para este producto
+  const productOverride = PRODUCT_OVERRIDES[handle] || {};
+  const displayTitle = productOverride.title || product?.title || 'Producto';
+  
   // Sanitizar HTML de descripción (el backend ya formatea)
   const safeDescription = useMemo(() => {
-    const html = product?.descriptionHtml || product?.description || '';
+    // Usar descripción override si existe, sino la del producto
+    const html = productOverride.descriptionHtml || product?.descriptionHtml || product?.description || '';
     if (!html) return '<p class="text-zinc-400">Este producto no tiene descripción disponible.</p>';
     
     // Sanitizar HTML permitiendo solo tags seguros
@@ -309,7 +335,7 @@ export default function ProductoDetalle() {
       ALLOWED_TAGS: ['p', 'ul', 'li', 'br', 'strong', 'em', 'b', 'i'],
       ALLOWED_ATTR: ['class']
     });
-  }, [product]);
+  }, [product, productOverride.descriptionHtml]);
 
   // Estados de carga y error
   if (loading) {
@@ -433,7 +459,7 @@ export default function ProductoDetalle() {
             </div>
             
             <h1 className="text-3xl lg:text-4xl font-bold mb-4">
-              {product.title}
+              {displayTitle}
             </h1>
 
             {/* Precio */}

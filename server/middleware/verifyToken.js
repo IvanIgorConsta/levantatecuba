@@ -20,12 +20,19 @@ module.exports = async function (req, res, next) {
     token = req.cookies.token;
   }
 
-  console.debug('[AUTH] verifyToken check', { 
-    hasAuthHeader: !!req.headers["authorization"], 
-    hasCookie: !!req.cookies?.token,
-    hasToken: !!token,
-    path: req.path 
-  });
+  // Log detallado para debugging
+  if (process.env.NODE_ENV !== 'production' || req.path.includes('/debug/')) {
+    console.debug('[AUTH] verifyToken check', { 
+      path: req.path,
+      method: req.method,
+      hasAuthHeader: !!req.headers["authorization"],
+      authHeaderPreview: req.headers["authorization"] ? req.headers["authorization"].substring(0, 20) + '...' : null,
+      hasCookie: !!req.cookies?.token,
+      hasToken: !!token,
+      origin: req.headers.origin || 'no-origin',
+      userAgent: req.headers['user-agent']?.substring(0, 50) || 'unknown'
+    });
+  }
 
   if (!token) {
     console.debug('[AUTH] 401 - No token provided');

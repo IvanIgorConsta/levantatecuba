@@ -78,21 +78,17 @@ export default function NewsListPanel({
     return list;
   }, [newsList, filtros?.statusFilter]);
 
-  const noticiasPorCategoria = React.useMemo(() => {
-    const agrupadas = baseList.reduce((acc, noticia) => {
-      const cat = noticia.categoria || "General";
-      if (!acc[cat]) acc[cat] = [];
-      acc[cat].push(noticia);
-      return acc;
-    }, {});
-    Object.keys(agrupadas).forEach((cat) => {
-      if (filtros?.statusFilter === "scheduled") {
-        agrupadas[cat].sort((a, b) => new Date(a.publishAt || 0) - new Date(b.publishAt || 0));
-      } else {
-        agrupadas[cat].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-      }
-    });
-    return agrupadas;
+  // Ordenar noticias por fecha (más recientes primero) - SIN agrupar por categoría
+  const noticiasOrdenadas = React.useMemo(() => {
+    const lista = [...(baseList || [])];
+    if (filtros?.statusFilter === "scheduled") {
+      // Para programadas: ordenar por fecha de publicación programada (próximas primero)
+      lista.sort((a, b) => new Date(a.publishAt || 0) - new Date(b.publishAt || 0));
+    } else {
+      // Para todas las demás: ordenar por fecha de publicación/creación (más recientes primero)
+      lista.sort((a, b) => new Date(b.publishedAt || b.createdAt) - new Date(a.publishedAt || a.createdAt));
+    }
+    return lista;
   }, [baseList, filtros?.statusFilter]);
 
   const noHayResultados = !loadingList && baseList.length === 0;
@@ -276,24 +272,19 @@ export default function NewsListPanel({
             : "No hay resultados para los filtros aplicados."}
         </div>
       ) : (
-        Object.entries(noticiasPorCategoria).map(([categoria, noticias]) => (
-          <div key={categoria} className="mb-8">
-            <h3 className="text-lg font-semibold text-red-400 mb-3">
-              Categoría: {categoria}
-            </h3>
-            <div className="space-y-4">
-              {noticias.map((noticia) => {
-                const isScheduled = noticia.status === "scheduled";
-                const publishAtLocal = noticia.publishAt ? new Date(noticia.publishAt).toLocaleString() : "";
-                const publishedAtLocal = (noticia.publishedAt || noticia.createdAt)
-                  ? new Date(noticia.publishedAt || noticia.createdAt).toLocaleString()
-                  : "";
+        <div className="space-y-4">
+          {noticiasOrdenadas.map((noticia) => {
+            const isScheduled = noticia.status === "scheduled";
+            const publishAtLocal = noticia.publishAt ? new Date(noticia.publishAt).toLocaleString() : "";
+            const publishedAtLocal = (noticia.publishedAt || noticia.createdAt)
+              ? new Date(noticia.publishedAt || noticia.createdAt).toLocaleString()
+              : "";
 
-                return (
-                  <div
-                    key={noticia._id}
-                    className="rounded-xl border border-zinc-800 bg-zinc-900/60 backdrop-blur p-3 sm:p-4"
-                  >
+            return (
+              <div
+                key={noticia._id}
+                className="rounded-xl border border-zinc-800 bg-zinc-900/60 backdrop-blur p-3 sm:p-4"
+              >
                     <div className="grid grid-cols-[56px,1fr,auto] sm:grid-cols-[72px,1fr,auto] gap-3 items-start">
                       {noticia.imagen && (
                         <div className="w-14 h-14 sm:w-18 sm:h-18 flex-shrink-0">
@@ -484,12 +475,10 @@ export default function NewsListPanel({
                           {/* Hilo de comentarios (si aplica) */}
                         </div>
                       )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        ))
+              </div>
+            );
+          })}
+        </div>
       )}
 
       {/* Paginación y controles */}

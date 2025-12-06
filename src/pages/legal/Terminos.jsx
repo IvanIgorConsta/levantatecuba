@@ -161,8 +161,8 @@ export default function Terminos() {
                 <h2 className="text-xl font-semibold text-white mb-3">9. Contacto</h2>
                 <p className="text-zinc-300 leading-relaxed">
                   Si tienes preguntas sobre estos términos y condiciones, puedes contactarnos en:{' '}
-                  <a href="mailto:contacto@levantatecuba.com" className="text-red-400 hover:text-red-300">
-                    contacto@levantatecuba.com
+                  <a href="mailto:soporte@levantatecuba.com" className="text-red-400 hover:text-red-300">
+                    soporte@levantatecuba.com
                   </a>
                 </p>
               </section>

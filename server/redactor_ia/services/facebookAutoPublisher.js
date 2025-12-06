@@ -5,6 +5,30 @@ const News = require('../../models/News');
 const { publishNewsToFacebook } = require('../../services/facebookPublisher');
 
 /**
+ * Obtiene la fecha/hora actual en zona horaria de Cuba (America/Havana)
+ * Cuba usa UTC-5 (EST) todo el año (no tiene horario de verano desde 2022)
+ * @returns {Date} Fecha ajustada a hora de Cuba
+ */
+function getCubaTime() {
+  const now = new Date();
+  // Obtener el offset de Cuba en minutos (-5 horas = -300 minutos)
+  const cubaOffset = -5 * 60;
+  // Obtener el offset actual del servidor en minutos
+  const serverOffset = now.getTimezoneOffset();
+  // Calcular la diferencia y ajustar
+  const diff = serverOffset + cubaOffset;
+  return new Date(now.getTime() + diff * 60 * 1000);
+}
+
+/**
+ * Obtiene solo la hora actual en Cuba (0-23)
+ * @returns {number} Hora actual en Cuba
+ */
+function getCubaHour() {
+  return getCubaTime().getHours();
+}
+
+/**
  * Servicio de programación automática de publicaciones en Facebook
  * 
  * FUNCIONAMIENTO:
@@ -83,7 +107,14 @@ function isNewsAFacebookCandidate(news) {
   if (!publishedAt) return false; // Sin fecha de publicación
   
   const ageInMs = now - publishedAt;
+  const ageInMinutes = ageInMs / (1000 * 60);
   const ageInDays = ageInMs / (1000 * 60 * 60 * 24);
+  
+  // COOLDOWN: No publicar noticias creadas hace menos de 5 minutos
+  // Esto evita que el auto-publisher tome noticias recién aprobadas
+  if (ageInMinutes < 5) {
+    return false;
+  }
   
   // Evergreen: siempre candidato (sin límite de antigüedad)
   if (news.isEvergreen === true) {
@@ -113,13 +144,13 @@ function isNewsAFacebookCandidate(news) {
 
 /**
  * Verifica si estamos dentro de la franja horaria configurada
- * @param {Number} startHour - Hora de inicio (0-23)
- * @param {Number} endHour - Hora de fin (0-23)
+ * USA HORA DE CUBA (UTC-5), no hora del servidor
+ * @param {Number} startHour - Hora de inicio (0-23) en hora Cuba
+ * @param {Number} endHour - Hora de fin (0-23) en hora Cuba
  * @returns {Boolean}
  */
 function isWithinTimeWindow(startHour, endHour) {
-  const now = new Date();
-  const currentHour = now.getHours();
+  const currentHour = getCubaHour(); // Usar hora de Cuba
   
   // Si startHour === endHour, está activo 24/7
   if (startHour === endHour) {
@@ -137,14 +168,21 @@ function isWithinTimeWindow(startHour, endHour) {
 
 /**
  * Cuenta cuántas publicaciones se hicieron hoy en Facebook
+ * USA "HOY" EN HORA DE CUBA (UTC-5)
  * @returns {Promise<Number>}
  */
 async function countTodayPublications() {
-  const startOfDay = new Date();
-  startOfDay.setHours(0, 0, 0, 0);
+  // Obtener inicio del día en hora de Cuba
+  const cubaTime = getCubaTime();
+  const startOfDayCuba = new Date(cubaTime);
+  startOfDayCuba.setHours(0, 0, 0, 0);
+  
+  // Convertir de vuelta a UTC para la query
+  const cubaOffset = -5 * 60; // Cuba es UTC-5
+  const startOfDayUTC = new Date(startOfDayCuba.getTime() - cubaOffset * 60 * 1000);
   
   const count = await News.countDocuments({
-    facebookPublishedAt: { $gte: startOfDay },
+    facebookPublishedAt: { $gte: startOfDayUTC },
     publishedToFacebook: true
   });
   
@@ -173,6 +211,10 @@ async function countTodayPublications() {
 async function getNextCandidate() {
   const now = new Date();
   
+  // COOLDOWN: No tomar noticias creadas hace menos de 5 minutos
+  // Esto da tiempo al admin de ver la noticia antes de que el auto-publisher la tome
+  const cooldownTime = new Date(now.getTime() - 5 * 60 * 1000); // 5 minutos atrás
+  
   // Calcular ventanas de tiempo
   const startOfToday = new Date(now);
   startOfToday.setHours(0, 0, 0, 0);
@@ -192,13 +234,22 @@ async function getNextCandidate() {
   // Query base: usar filtro único de candidatos de Facebook
   const baseQuery = buildFacebookCandidatesFilter();
   
+  // Helper para añadir cooldown a cada query de fecha
+  // Asegura que publishedAt sea >= fechaMin Y <= cooldownTime (hace 5+ min)
+  const withCooldown = (minDate, maxDate = null) => {
+    if (maxDate) {
+      return { $gte: minDate, $lte: maxDate < cooldownTime ? maxDate : cooldownTime };
+    }
+    return { $gte: minDate, $lte: cooldownTime };
+  };
+  
   // ====================
-  // 1. CUBA HOY
+  // 1. CUBA HOY (pero con 5+ min de antigüedad)
   // ====================
   let candidate = await News.findOne({
     ...baseQuery,
     categoria: 'Cuba',
-    publishedAt: { $gte: startOfToday }
+    publishedAt: withCooldown(startOfToday)
   })
   .sort({ publishedAt: 1, _id: 1 }) // Más antiguas primero
   .lean();
@@ -241,12 +292,12 @@ async function getNextCandidate() {
   }
   
   // ====================
-  // 4. TENDENCIA RECIENTES (últimos 3 días)
+  // 4. TENDENCIA RECIENTES (últimos 3 días, pero con 5+ min de antigüedad)
   // ====================
   candidate = await News.findOne({
     ...baseQuery,
     categoria: 'Tendencia',
-    publishedAt: { $gte: last3Days }
+    publishedAt: withCooldown(last3Days)
   })
   .sort({ publishedAt: 1, _id: 1 })
   .lean();
@@ -273,12 +324,12 @@ async function getNextCandidate() {
   }
   
   // ====================
-  // 6. TECNOLOGÍA (hasta 7 días)
+  // 6. TECNOLOGÍA (hasta 7 días, pero con 5+ min de antigüedad)
   // ====================
   candidate = await News.findOne({
     ...baseQuery,
     categoria: 'Tecnología',
-    publishedAt: { $gte: last7Days }
+    publishedAt: withCooldown(last7Days)
   })
   .sort({ publishedAt: 1, _id: 1 })
   .lean();
@@ -289,12 +340,12 @@ async function getNextCandidate() {
   }
   
   // ====================
-  // 7. OTRAS CATEGORÍAS (últimos 5 días)
+  // 7. OTRAS CATEGORÍAS (últimos 5 días, pero con 5+ min de antigüedad)
   // ====================
   candidate = await News.findOne({
     ...baseQuery,
     categoria: { $nin: ['Cuba', 'Tendencia', 'Tecnología'] },
-    publishedAt: { $gte: last5Days }
+    publishedAt: withCooldown(last5Days)
   })
   .sort({ publishedAt: 1, _id: 1 })
   .lean();
@@ -305,11 +356,12 @@ async function getNextCandidate() {
   }
   
   // ====================
-  // 8. EVERGREEN (sin límite de antigüedad)
+  // 8. EVERGREEN (sin límite de antigüedad, pero con 5+ min de antigüedad)
   // ====================
   candidate = await News.findOne({
     ...baseQuery,
-    isEvergreen: true
+    isEvergreen: true,
+    publishedAt: { $lte: cooldownTime }
   })
   .sort({ publishedAt: 1, _id: 1 })
   .lean();
@@ -366,10 +418,10 @@ async function runFacebookAutoPublisher() {
     console.log(`${logPrefix} 🚀 Iniciando ciclo de publicación automática en Facebook`);
     console.log(`${logPrefix} Configuración: intervalo=${fbConfig.intervalMinutes}min, franja=${fbConfig.startHour}:00-${fbConfig.endHour}:00, maxPerDay=${fbConfig.maxPerDay}`);
     
-    // 2. Verificar franja horaria
+    // 2. Verificar franja horaria (usando hora de Cuba)
     if (!isWithinTimeWindow(fbConfig.startHour, fbConfig.endHour)) {
-      const currentHour = new Date().getHours();
-      console.log(`${logPrefix} ⏰ Fuera de franja horaria (actual: ${currentHour}:00, franja: ${fbConfig.startHour}:00-${fbConfig.endHour}:00)`);
+      const currentHour = getCubaHour(); // Hora de Cuba
+      console.log(`${logPrefix} ⏰ Fuera de franja horaria (hora Cuba: ${currentHour}:00, franja: ${fbConfig.startHour}:00-${fbConfig.endHour}:00)`);
       return { 
         success: false, 
         reason: 'outside_time_window',
@@ -437,6 +489,7 @@ async function runFacebookAutoPublisher() {
       },
       { 
         facebook_status: 'sharing',
+        facebook_sharing_since: new Date(), // Timestamp para expiración del lock
         facebook_attempt_count: (candidate.facebook_attempt_count || 0) + 1
       },
       { new: true }

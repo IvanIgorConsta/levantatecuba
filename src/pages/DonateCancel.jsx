@@ -165,8 +165,8 @@ export default function DonateCancel() {
         <div className="text-center text-sm text-gray-500">
           <p>¿Problemas con el proceso de donación?</p>
           <p>
-            <a href="mailto:contacto@levantatecuba.com" className="text-red-400 hover:text-red-300 underline">
-              contacto@levantatecuba.com
+            <a href="mailto:soporte@levantatecuba.com" className="text-red-400 hover:text-red-300 underline">
+              soporte@levantatecuba.com
             </a>
           </p>
         </div>

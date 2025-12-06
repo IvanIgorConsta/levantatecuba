@@ -284,6 +284,23 @@ router.get('/products/:handle', async (req, res) => {
     }
     
     // [Claude]: Formatear igual que en /products para consistencia
+    // Procesar variantes con selectedOptions e imagen
+    const variants = (product.variants?.edges || []).map(edge => {
+      const v = edge.node;
+      return {
+        id: v.id,
+        title: v.title,
+        availableForSale: v.availableForSale,
+        available: v.availableForSale,
+        quantityAvailable: v.quantityAvailable,
+        price: v.price,
+        compareAtPrice: v.compareAtPrice,
+        image: v.image || null,
+        imageUrl: v.image?.url || null,
+        selectedOptions: v.selectedOptions || [],
+      };
+    });
+
     const formattedProduct = {
       id: product.id,
       handle: product.handle,
@@ -300,16 +317,22 @@ router.get('/products/:handle', async (req, res) => {
       productType: product.productType || 'general',
       availableForSale: product.availableForSale,
       available: product.availableForSale,
+      // [Claude]: Opciones de producto (Color, Size, etc.)
       options: Array.isArray(product.options) ? product.options.map(o => ({
         name: o?.name,
         values: Array.isArray(o?.values) ? o.values : [],
       })) : [],
-      variants: product.variants?.edges?.map(v => v.node) || [],
+      // [Claude]: Variantes con selectedOptions para mapear color+talla
+      variants: variants,
       images: product.images?.edges || [],
       vendor: product.vendor,
       tags: product.tags,
       seo: product.seo,
     };
+    
+    // Log para debug de opciones
+    console.log(`[Shopify BE] Product options:`, formattedProduct.options);
+    console.log(`[Shopify BE] Variants count: ${variants.length}, sample selectedOptions:`, variants[0]?.selectedOptions);
     
     console.log(`[Shopify BE] ✅ Product found: ${product.title}`);
     

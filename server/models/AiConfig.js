@@ -135,6 +135,12 @@ const aiConfigSchema = new mongoose.Schema({
     enum: ['claude-sonnet-4.5-thinking', 'claude-opus', 'gpt-4o', 'gpt-4o-mini']
   },
   
+  // Debug: Logging detallado de generación de borradores
+  debugGeneration: {
+    type: Boolean,
+    default: false
+  },
+  
   imageProvider: {
     type: String,
     default: 'dall-e-3',

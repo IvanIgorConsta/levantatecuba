@@ -21,7 +21,7 @@ const Noticias = lazy(() => import("./pages/Noticias"));
 const NoticiaDetalle = lazy(() => import("./pages/NoticiaDetalle"));
 const HacerDenuncia = lazy(() => import("./pages/HacerDenuncia"));
 const PuenteLibre = lazy(() => import("./pages/PuenteLibre"));
-// Contacto eliminado - usar mailto:contacto@levantatecuba.com
+// Contacto eliminado - usar mailto:soporte@levantatecuba.com
 // Donar eliminado - usar botón Apoyar con Stripe
 const DonateSuccess = lazy(() => import("./pages/DonateSuccess"));
 const DonateCancel = lazy(() => import("./pages/DonateCancel"));

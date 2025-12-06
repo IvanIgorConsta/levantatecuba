@@ -62,15 +62,19 @@ router.post("/facebook/share", verifyToken, verifyRole(["admin", "editor"]), asy
       });
     }
 
-    // Actualizar estado a "sharing"
+    // Actualizar estado a "sharing" con timestamp para control de expiración
     noticia.facebook_status = "sharing";
+    noticia.facebook_sharing_since = new Date();
     noticia.facebook_attempt_count = (noticia.facebook_attempt_count || 0) + 1;
     await noticia.save();
 
     try {
-      // Publicar en Facebook como link post
-      console.log(`[Social Routes] Publicando noticia ${postId} en Facebook como link post`);
-      const { fbPostId, permalink } = await publishNewsToFacebook(noticia, { userToken });
+      // Publicar en Facebook como photo post + Story automático
+      console.log(`[Social Routes] Publicando noticia ${postId} en Facebook (post + story)`);
+      const { fbPostId, permalink, storyId, storyPublished } = await publishNewsToFacebook(noticia, { 
+        userToken,
+        manualPublish: true // Flag para indicar que es publicación manual (ya pusimos el lock)
+      });
 
       // Actualizar noticia con éxito
       noticia.facebook_status = "published";
@@ -88,19 +92,23 @@ router.post("/facebook/share", verifyToken, verifyRole(["admin", "editor"]), asy
         status: "posted",
         lastAt: new Date(),
         postId: fbPostId,
-        permalink: permalink
+        permalink: permalink,
+        storyId: storyId || null,
+        storyPublished: storyPublished || false
       };
       noticia.share.lastSharedAt = new Date();
 
       await noticia.save();
 
-      console.log(`[Social Routes] ✅ Noticia ${postId} publicada exitosamente`);
+      console.log(`[Social Routes] ✅ Noticia ${postId} publicada exitosamente${storyPublished ? ' + Story' : ''}`);
 
       return res.json({
         status: "ok",
         postId: noticia._id,
         fbPostId,
-        permalink
+        permalink,
+        storyId: storyId || null,
+        storyPublished: storyPublished || false
       });
 
     } catch (publishError) {

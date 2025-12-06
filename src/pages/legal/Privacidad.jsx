@@ -141,7 +141,7 @@ export default function Privacidad() {
                 <h2 className="text-xl font-semibold text-white mb-3">7. Contacto</h2>
                 <p className="text-zinc-300 leading-relaxed">
                   Si tienes preguntas sobre esta política de privacidad o deseas ejercer alguno de tus derechos, 
-                  puedes contactarnos en: <a href="mailto:contacto@levantatecuba.com" className="text-red-400 hover:text-red-300">contacto@levantatecuba.com</a>
+                  puedes contactarnos en: <a href="mailto:soporte@levantatecuba.com" className="text-red-400 hover:text-red-300">soporte@levantatecuba.com</a>
                 </p>
               </section>
 

@@ -664,7 +664,7 @@ export default function ConfiguracionIA() {
       <div className="bg-zinc-800/50 border border-zinc-700 rounded-xl p-3 sm:p-4 lg:p-5 xl:p-6 mb-6">
         <div className="flex items-center gap-2 mb-4 lg:mb-5">
           <Clock className="text-amber-400" size={20} />
-          <h3 className="text-base sm:text-lg font-bold">Programación automática</h3>
+          <h3 className="text-base sm:text-lg font-bold">Programación automática de Borradores</h3>
         </div>
         
         <p className="text-xs sm:text-sm text-zinc-400 mb-4 leading-relaxed">

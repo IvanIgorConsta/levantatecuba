@@ -763,6 +763,10 @@ router.post('/drafts/:id/capture-cover-from-source', requireEditor, async (req, 
     draft.coverHash = result.coverHash || '';
     draft.imageKind = result.kind || 'processed';
     
+    // Guardar URLs originales para regeneración si se pierde la imagen
+    draft.originalImageUrl = result.originalImageUrl || null;
+    draft.originalImageSource = result.originalImageSource || sourceUrl;
+    
     if (!draft.aiMetadata) {
       draft.aiMetadata = {};
     }
@@ -925,6 +929,14 @@ router.put('/drafts/:id/review', requireEditor, async (req, res) => {
           console.log(`[API] Noticia actualizada: ${createdNews._id}`);
         } else {
           // Crear nueva noticia
+          console.log('[API:Aprobar] Creando noticia con datos:', {
+            titulo: draft.titulo?.substring(0, 50),
+            categoria: draft.categoria,
+            autor: autorNombre,
+            imagen: coverUrl?.substring(0, 50),
+            mode: draft.mode
+          });
+          
           createdNews = await News.create({
             titulo: draft.titulo,
             bajada: draft.bajada || '',
@@ -933,6 +945,7 @@ router.put('/drafts/:id/review', requireEditor, async (req, res) => {
             categoria: draft.categoria || 'General',
             etiquetas: draft.etiquetas || [],
             autor: autorNombre,
+            fecha: new Date(), // Campo legacy para compatibilidad
             publishedAt: new Date(),
             status: 'published',
             mode: draft.mode || 'factual',
@@ -946,6 +959,8 @@ router.put('/drafts/:id/review', requireEditor, async (req, res) => {
             imageOriginal: draft.sourceImageUrl || null,
             imageProcessed: false
           });
+          
+          console.log('[API:Aprobar] ✅ Noticia creada exitosamente:', createdNews._id);
           
           // Procesar imagen real en background si hay URL
           if (draft.sourceImageUrl) {
@@ -969,8 +984,10 @@ router.put('/drafts/:id/review', requireEditor, async (req, res) => {
         draft.status = 'published';
         
       } catch (newsError) {
-        console.error('[API] Error creando/actualizando noticia:', newsError);
-        // No bloquear la aprobación, pero registrar el error
+        console.error('[API:Aprobar] ❌ Error creando/actualizando noticia:', newsError.message);
+        console.error('[API:Aprobar] Stack:', newsError.stack);
+        // Reportar error pero continuar con la aprobación del borrador
+        // La noticia no se creó pero el borrador queda aprobado
       }
     }
     
@@ -983,16 +1000,21 @@ router.put('/drafts/:id/review', requireEditor, async (req, res) => {
       .populate('publishedAs');
     
     const messages = {
-      approved: createdNews ? 'Borrador aprobado y noticia publicada' : 'Borrador aprobado',
+      approved: createdNews 
+        ? `Borrador aprobado y noticia publicada (ID: ${createdNews._id})` 
+        : 'Borrador aprobado (⚠️ la noticia no se pudo crear)',
       changes_requested: 'Cambios solicitados',
       pending: 'Borrador devuelto a pendiente'
     };
+    
+    console.log(`[API:Review] Respuesta: status=${status}, newsCreated=${!!createdNews}`);
     
     res.json({ 
       ok: true, 
       message: messages[status] || 'Revisión actualizada',
       draft: populated,
-      news: createdNews || undefined
+      news: createdNews || undefined,
+      newsCreated: !!createdNews // Flag explícito para el frontend
     });
   } catch (error) {
     console.error('[API] Error en revisión:', error);
@@ -1544,7 +1566,8 @@ router.patch('/config', verifyToken, verifyRole(['admin']), async (req, res) => 
       'autoScheduleInterval',  // Minutos entre publicaciones
       'autoScheduleStartHour', // Hora inicio franja horaria
       'autoScheduleEndHour',   // Hora fin franja horaria
-      'facebookScheduler'      // Configuración de Facebook
+      'facebookScheduler',     // Configuración de Facebook
+      'debugGeneration'        // Debug: logging detallado de generación
     ];
     
     // Parseo seguro de valores
@@ -1572,7 +1595,7 @@ router.patch('/config', verifyToken, verifyRole(['admin']), async (req, res) => 
           value = Math.max(5, Math.min(120, toInt(value, 10))); // 5-120 minutos
         } else if (field === 'autoScheduleStartHour' || field === 'autoScheduleEndHour') {
           value = Math.max(0, Math.min(23, toInt(value, field === 'autoScheduleStartHour' ? 7 : 23))); // 0-23
-        } else if (['autoGenerateImages', 'autoCaptureImageFromSourceOnCreate', 'newsApiEnabled', 'strictCuba', 'enforceSourceAllowlist', 'suggestOptimalFrequency', 'autoScheduleEnabled'].includes(field)) {
+        } else if (['autoGenerateImages', 'autoCaptureImageFromSourceOnCreate', 'newsApiEnabled', 'strictCuba', 'enforceSourceAllowlist', 'suggestOptimalFrequency', 'autoScheduleEnabled', 'debugGeneration'].includes(field)) {
           value = toBool(value, false);
         }
         
@@ -2231,34 +2254,64 @@ router.post('/auto-schedule', requireEditor, async (req, res) => {
       autoScheduleEndHour // hora fin (ej: 23)
     } = config;
     
-    // Calcular fechas de publicación empezando desde la hora actual
+    // ═══════════════════════════════════════════════════════════════
+    // USAR ZONA HORARIA DE CUBA (America/Havana)
+    // ═══════════════════════════════════════════════════════════════
     const now = new Date();
     const intervalMs = autoScheduleInterval * 60 * 1000;
     
-    // Definir inicio y fin de la franja horaria de hoy
+    // Obtener la hora actual en Cuba
+    const cubaFormatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/Havana',
+      hour: 'numeric',
+      minute: 'numeric',
+      hour12: false
+    });
+    const cubaParts = cubaFormatter.formatToParts(now);
+    const cubaHour = parseInt(cubaParts.find(p => p.type === 'hour').value);
+    const cubaMinute = parseInt(cubaParts.find(p => p.type === 'minute').value);
+    
+    console.log(`[AutoSchedule] Hora Cuba: ${cubaHour}:${cubaMinute.toString().padStart(2, '0')}`);
+    console.log(`[AutoSchedule] Franja: ${autoScheduleStartHour}:00 - ${autoScheduleEndHour}:00`);
+    
+    // Calcular offset de Cuba respecto a UTC
+    const cubaOffset = -5 * 60; // Cuba es UTC-5 (horario estándar)
+    
+    // Crear fechas de inicio y fin de la franja en hora de Cuba (convertidas a UTC)
     const startToday = new Date(now);
-    startToday.setHours(autoScheduleStartHour, 0, 0, 0);
+    startToday.setUTCHours(autoScheduleStartHour - cubaOffset / 60, 0, 0, 0);
     
     const endToday = new Date(now);
-    endToday.setHours(autoScheduleEndHour, 0, 0, 0);
+    endToday.setUTCHours(autoScheduleEndHour - cubaOffset / 60, 0, 0, 0);
     
-    // Calcular el primer slot de publicación
+    // Ajustar si el día cambió por el offset
+    const cubaDateFormatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/Havana',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    });
+    const cubaDateStr = cubaDateFormatter.format(now);
+    
+    // Calcular el primer slot de publicación basado en hora de Cuba
     let currentSlot;
     
-    if (now < startToday) {
-      // 1) Estamos antes de la franja → usar inicio de hoy
-      currentSlot = new Date(startToday);
-    } else if (now >= startToday && now <= endToday) {
-      // 2) Estamos dentro de la franja → empezar desde ahora, redondeado al próximo múltiplo
-      const ms = now.getTime();
-      const rounded = Math.ceil(ms / intervalMs) * intervalMs;
-      currentSlot = new Date(rounded);
+    if (cubaHour < autoScheduleStartHour) {
+      // 1) Estamos antes de la franja en Cuba → usar inicio de hoy (hora Cuba)
+      currentSlot = new Date(now);
+      currentSlot.setUTCHours(autoScheduleStartHour + 5, 0, 0, 0); // +5 para convertir Cuba a UTC
+      console.log(`[AutoSchedule] Antes de franja, programando desde: ${autoScheduleStartHour}:00 Cuba`);
+    } else if (cubaHour >= autoScheduleStartHour && cubaHour < autoScheduleEndHour) {
+      // 2) Estamos dentro de la franja → empezar desde ahora + intervalo
+      currentSlot = new Date(now.getTime() + intervalMs);
       currentSlot.setSeconds(0, 0);
+      console.log(`[AutoSchedule] Dentro de franja, primer slot en ${autoScheduleInterval} minutos`);
     } else {
       // 3) Estamos después de la franja → saltar al inicio del día siguiente
-      const nextDay = new Date(startToday);
-      nextDay.setDate(nextDay.getDate() + 1);
-      currentSlot = nextDay;
+      currentSlot = new Date(now);
+      currentSlot.setDate(currentSlot.getDate() + 1);
+      currentSlot.setUTCHours(autoScheduleStartHour + 5, 0, 0, 0); // +5 para convertir Cuba a UTC
+      console.log(`[AutoSchedule] Después de franja, programando para mañana ${autoScheduleStartHour}:00 Cuba`);
     }
     
     const scheduledDrafts = [];
@@ -2278,16 +2331,15 @@ router.post('/auto-schedule', requireEditor, async (req, res) => {
       // Calcular siguiente slot
       let nextSlot = new Date(currentSlot.getTime() + intervalMs);
       
-      // Si nos salimos de la franja del día actual, saltar al día siguiente
-      const nextSlotEndOfDay = new Date(nextSlot);
-      nextSlotEndOfDay.setHours(autoScheduleEndHour, 0, 0, 0);
+      // Obtener hora de Cuba del siguiente slot
+      const nextSlotCubaParts = cubaFormatter.formatToParts(nextSlot);
+      const nextSlotCubaHour = parseInt(nextSlotCubaParts.find(p => p.type === 'hour').value);
       
-      if (nextSlot > nextSlotEndOfDay) {
+      // Si nos salimos de la franja (hora Cuba >= hora fin), saltar al día siguiente
+      if (nextSlotCubaHour >= autoScheduleEndHour) {
         // Saltar al inicio de la franja del día siguiente
-        const nextDayStart = new Date(nextSlot);
-        nextDayStart.setDate(nextDayStart.getDate() + 1);
-        nextDayStart.setHours(autoScheduleStartHour, 0, 0, 0);
-        nextSlot = nextDayStart;
+        nextSlot.setDate(nextSlot.getDate() + 1);
+        nextSlot.setUTCHours(autoScheduleStartHour + 5, 0, 0, 0); // +5 para Cuba a UTC
       }
       
       currentSlot = nextSlot;
