@@ -171,6 +171,7 @@ export default function NewsForm({
             <option value="Socio político">Socio político</option>
             <option value="Tecnología">Tecnología</option>
             <option value="Tendencia">Tendencia</option>
+            <option value="Deporte">Deporte</option>
           </select>
         </div>
 
@@ -181,6 +182,7 @@ export default function NewsForm({
               form.categoria === "Socio político" ? "text-red-600" :
               form.categoria === "Tecnología" ? "text-cyan-500" :
               form.categoria === "Tendencia" ? "text-orange-500" :
+              form.categoria === "Deporte" ? "text-green-500" :
               "text-white/80"
             }`}>{form.categoria}</span></span>
           )}

@@ -1,0 +1,19 @@
+# robots.txt para LevántateCuba
+# https://levantatecuba.com
+
+User-agent: *
+Allow: /
+Allow: /noticias
+Allow: /noticias/
+Allow: /denuncias
+Allow: /tienda
+Allow: /tasas
+
+# Bloquear rutas privadas
+Disallow: /admin
+Disallow: /api/
+Disallow: /login
+Disallow: /register
+
+# Sitemap
+Sitemap: https://levantatecuba.com/sitemap.xml

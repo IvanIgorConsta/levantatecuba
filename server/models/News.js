@@ -52,7 +52,7 @@ const newsSchema = new mongoose.Schema(
     categoria: {
       type: String,
       trim: true,
-      enum: ["General", "Política", "Economía", "Internacional", "Socio político", "Tecnología", "Tendencia"],
+      enum: ["General", "Política", "Economía", "Internacional", "Socio político", "Tecnología", "Tendencia", "Deporte"],
       default: "General",
     },
     destacada: {

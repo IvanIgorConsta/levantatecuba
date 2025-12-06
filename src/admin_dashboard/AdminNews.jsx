@@ -41,6 +41,9 @@ export default function AdminNews() {
   // Contadores estables para tabs
   const [counts, setCounts] = useState({ all: 0, published: 0, scheduled: 0 });
 
+  // Info del scheduler de Facebook para mostrar tiempos estimados
+  const [fbSchedulerInfo, setFbSchedulerInfo] = useState(null);
+
   // Para evitar race conditions
   const requestIdRef = useRef(0);
 
@@ -236,6 +239,26 @@ export default function AdminNews() {
   // =========================================================================================
 
   // =======================
+  // Obtener info del scheduler de Facebook
+  // =======================
+  const fetchFbSchedulerInfo = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch("/api/redactor-ia/facebook/scheduler-info", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.ok) {
+          setFbSchedulerInfo(data);
+        }
+      }
+    } catch (error) {
+      console.warn("[AdminNews] Error fetching FB scheduler info:", error);
+    }
+  };
+
+  // =======================
   // Cargar noticias (robusto)
   // =======================
   const fetchNoticias = async ({
@@ -265,6 +288,8 @@ export default function AdminNews() {
       // Filtro de Facebook pendientes
       if (statusFilter === "fbPending" || fbStatus === "pending") {
         baseParams.set("fbStatus", "pending");
+        // Obtener info del scheduler para mostrar tiempos estimados
+        fetchFbSchedulerInfo();
       } else if (statusFilter === "published") {
         baseParams.set("status", "published");
       } else if (statusFilter === "scheduled") {
@@ -898,6 +923,7 @@ export default function AdminNews() {
         counts={counts}
         loadingList={loadingList}
         loadingCounts={loadingCounts}
+        fbSchedulerInfo={fbSchedulerInfo}
       />
 
       {mgr.open && (

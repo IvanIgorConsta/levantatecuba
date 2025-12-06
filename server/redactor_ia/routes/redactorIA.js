@@ -2413,6 +2413,30 @@ router.post('/generar-desde-url', generateLimiter, requireEditor, async (req, re
 // ==================== FACEBOOK AUTO PUBLISHER ====================
 
 /**
+ * GET /api/redactor-ia/facebook/scheduler-info
+ * Obtiene info básica del scheduler de Facebook para mostrar en UI
+ */
+router.get('/facebook/scheduler-info', requireEditor, async (req, res) => {
+  try {
+    const { getFacebookScheduleSummary } = require('../services/facebookAutoPublisher');
+    const summary = await getFacebookScheduleSummary();
+    
+    res.json({
+      ok: true,
+      enabled: summary.enabled,
+      intervalMinutes: summary.intervalMinutes,
+      startHour: summary.startHour,
+      endHour: summary.endHour,
+      candidatesCount: summary.candidatesCount,
+      publishedToday: summary.publishedToday,
+      isWithinTimeWindow: summary.isWithinTimeWindow
+    });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+/**
  * POST /api/redactor-ia/facebook/recalculate-schedule
  * Obtiene un resumen del estado actual de la programación automática en Facebook
  */

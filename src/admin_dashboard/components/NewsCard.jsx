@@ -34,6 +34,7 @@ export default function NewsCard({
             news.categoria === 'Socio político' ? 'bg-rose-700/20 text-rose-300 border border-rose-700/40' :
             news.categoria === 'Tecnología' ? 'bg-cyan-600/20 text-cyan-300 border border-cyan-700/40' :
             news.categoria === 'Tendencia' ? 'bg-orange-600/20 text-orange-300 border border-orange-700/40' :
+            news.categoria === 'Deporte' ? 'bg-emerald-600/20 text-emerald-300 border border-emerald-700/40' :
             'bg-sky-600/15 text-sky-300 border border-sky-700/40'
           }`}>
             {news.categoria}

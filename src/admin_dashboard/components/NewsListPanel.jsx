@@ -25,6 +25,7 @@ export default function NewsListPanel({
   counts,
   loadingList,
   loadingCounts,
+  fbSchedulerInfo, // Info del scheduler de Facebook (intervalo, próximo slot, etc.)
 }) {
   // Helper: Determina si una noticia está publicada en Facebook
   const isFacebookPublished = (news) => {
@@ -34,7 +35,42 @@ export default function NewsListPanel({
   // IMPORTANTE: No usar lógica local para determinar si es candidato
   // El backend ya calcula esto correctamente usando buildFacebookCandidatesFilter()
   // y lo envía en el campo news.isFacebookCandidate
-  
+
+  // Helper: Calcula hora estimada de publicación en Facebook
+  const getEstimatedFBTime = (queuePosition) => {
+    // Usar intervalo del scheduler o 30 min por defecto
+    const interval = fbSchedulerInfo?.intervalMinutes || 30;
+    const totalMinutes = queuePosition * interval;
+    
+    // Calcular la hora estimada de publicación
+    const now = new Date();
+    const estimatedTime = new Date(now.getTime() + totalMinutes * 60 * 1000);
+    
+    // Formatear la hora (ej: "8:30 PM" o "20:30")
+    const hours = estimatedTime.getHours();
+    const mins = estimatedTime.getMinutes();
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    const hour12 = hours % 12 || 12;
+    const minsStr = mins.toString().padStart(2, '0');
+    
+    // Si es para mañana o después, mostrar también la fecha
+    const isToday = estimatedTime.toDateString() === now.toDateString();
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const isTomorrow = estimatedTime.toDateString() === tomorrow.toDateString();
+    
+    if (isToday) {
+      return `${hour12}:${minsStr} ${ampm}`;
+    } else if (isTomorrow) {
+      return `Mañana ${hour12}:${minsStr}`;
+    } else {
+      // Mostrar fecha corta
+      const day = estimatedTime.getDate();
+      const month = estimatedTime.getMonth() + 1;
+      return `${day}/${month} ${hour12}:${minsStr}`;
+    }
+  };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFiltros((prev) => ({ ...prev, [name]: value }));
@@ -90,6 +126,24 @@ export default function NewsListPanel({
     }
     return lista;
   }, [baseList, filtros?.statusFilter]);
+
+  // Crear mapa de posiciones en cola para candidatos de FB
+  // Usar fbQueuePosition del backend si existe, o calcular basado en orden mostrado
+  const fbQueuePositions = React.useMemo(() => {
+    const positions = {};
+    let fbCandidateIndex = 0;
+    
+    // Recorrer todas las noticias y asignar posición a los candidatos de FB
+    (newsList || []).forEach((n) => {
+      if (n.isFacebookCandidate) {
+        fbCandidateIndex++;
+        // Usar posición del backend si existe, o calcular
+        positions[n._id] = n.fbQueuePosition || fbCandidateIndex;
+      }
+    });
+    
+    return positions;
+  }, [newsList]);
 
   const noHayResultados = !loadingList && baseList.length === 0;
 
@@ -172,6 +226,7 @@ export default function NewsListPanel({
             <option value="Socio político">Socio político</option>
             <option value="Tecnología">Tecnología</option>
             <option value="Tendencia">Tendencia</option>
+            <option value="Deporte">Deporte</option>
           </select>
           <input
             type="date"
@@ -314,10 +369,18 @@ export default function NewsListPanel({
                               </span>
                             )}
                             
-                            {/* Badge de Facebook - usar campo del backend que aplica buildFacebookCandidatesFilter() */}
+                            {/* Badge de Facebook - mostrar hora estimada de publicación */}
                             {noticia.isFacebookCandidate && (
-                              <span className="inline-flex items-center px-2 py-0.5 text-[11px] rounded-full border border-blue-500/40 bg-blue-500/10 text-blue-300 whitespace-nowrap">
-                                FB pendiente
+                              <span 
+                                className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] rounded-full border border-blue-500/40 bg-blue-500/10 text-blue-300 whitespace-nowrap"
+                                title={fbQueuePositions[noticia._id] 
+                                  ? `Posición #${fbQueuePositions[noticia._id]} en cola de Facebook` 
+                                  : "Pendiente de publicación en Facebook"}
+                              >
+                                {fbQueuePositions[noticia._id] && getEstimatedFBTime(fbQueuePositions[noticia._id]) 
+                                  ? `FB ${getEstimatedFBTime(fbQueuePositions[noticia._id])}`
+                                  : "FB pendiente"
+                                }
                               </span>
                             )}
                           </div>

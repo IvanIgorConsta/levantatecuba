@@ -1,6 +1,7 @@
 // src/pages/Noticias.jsx
 import { Link } from "react-router-dom";
 import { useEffect, useState, useRef, useLayoutEffect } from "react";
+import { Helmet } from "react-helmet-async";
 import DOMPurify from "dompurify";
 import { normalizeNewsArray, buildCoverSrc } from "../utils/imageUtils";
 import {
@@ -154,6 +155,7 @@ export default function Noticias() {
     "Socio político",
     "Tecnología",
     "Tendencia",
+    "Deporte",
   ];
 
   const filtrarNoticias = noticias.filter((n) => {
@@ -278,6 +280,8 @@ export default function Noticias() {
                       ? "bg-cyan-500"
                       : n.categoria === "Tendencia"
                       ? "bg-orange-500"
+                      : n.categoria === "Deporte"
+                      ? "bg-green-600"
                       : "bg-red-600"
                   }`}
                 >
@@ -386,8 +390,44 @@ export default function Noticias() {
     </div>
   );
 
+  // Generar JSON-LD para SEO (primeros 10 artículos de "Hoy")
+  const jsonLdData = {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    "name": "Noticias de LevántateCuba",
+    "description": "Noticias de LevántateCuba: actualidad en Cuba, política internacional, economía, sociedad, tecnología, deporte y reportajes independientes con análisis sin censura.",
+    "url": "https://levantatecuba.com/noticias",
+    "hasPart": {
+      "@type": "ItemList",
+      "itemListElement": noticiasAgrupadas?.["Hoy"]?.slice(0, 10).map((n, idx) => ({
+        "@type": "ListItem",
+        "position": idx + 1,
+        "url": `https://levantatecuba.com/noticias/${n._id}`,
+        "name": n.titulo,
+        ...(n._cover && { "image": n._cover.startsWith('http') ? n._cover : `https://levantatecuba.com${n._cover}` }),
+        ...(n.createdAt && { "datePublished": new Date(n.createdAt).toISOString() })
+      })) || []
+    }
+  };
+
   return (
     <>
+      {/* SEO Meta Tags */}
+      <Helmet>
+        <title>Noticias de LevántateCuba — Actualidad, política, economía, tecnología y más</title>
+        <meta name="description" content="Noticias de LevántateCuba: actualidad en Cuba, política internacional, economía, sociedad, tecnología, deporte y reportajes independientes con análisis sin censura." />
+        <link rel="canonical" href="https://levantatecuba.com/noticias" />
+        <meta name="robots" content="index,follow,max-image-preview:large" />
+        <meta property="og:title" content="Noticias de LevántateCuba — Actualidad, política, economía, tecnología y más" />
+        <meta property="og:description" content="Noticias de LevántateCuba: actualidad en Cuba, política internacional, economía, sociedad, tecnología, deporte y reportajes independientes con análisis sin censura." />
+        <meta property="og:url" content="https://levantatecuba.com/noticias" />
+        <meta property="og:type" content="website" />
+        <meta property="og:image" content="https://levantatecuba.com/img/og-default.jpg" />
+        <script type="application/ld+json">
+          {JSON.stringify(jsonLdData)}
+        </script>
+      </Helmet>
+
       <style>{`
 /* ===== Altura fija + proporción de imagen (desktop más compacto) ===== */
 :root { --card-h: 520px; --img-ratio: 0.45; }                  /* móvil / base */

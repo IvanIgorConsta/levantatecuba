@@ -415,7 +415,7 @@ router.post(
   [
     body("titulo").trim().notEmpty().withMessage("Título es obligatorio"),
     body("contenido").trim().notEmpty().withMessage("Contenido es obligatorio"),
-    body("categoria").optional().isIn(["General", "Política", "Economía", "Internacional", "Socio político", "Tecnología"]).withMessage("Categoría no válida"),
+    body("categoria").optional().isIn(["General", "Política", "Economía", "Internacional", "Socio político", "Tecnología", "Tendencia", "Deporte"]).withMessage("Categoría no válida"),
   ],
   async (req, res) => {
     const errors = validationResult(req);
@@ -493,7 +493,7 @@ router.put(
   [
     body("titulo").trim().notEmpty().withMessage("Título es obligatorio"),
     body("contenido").trim().notEmpty().withMessage("Contenido es obligatorio"),
-    body("categoria").optional().isIn(["General", "Política", "Economía", "Internacional", "Socio político", "Tecnología"]).withMessage("Categoría no válida"),
+    body("categoria").optional().isIn(["General", "Política", "Economía", "Internacional", "Socio político", "Tecnología", "Tendencia", "Deporte"]).withMessage("Categoría no válida"),
   ],
   async (req, res) => {
     const errors = validationResult(req);

@@ -434,28 +434,57 @@ export default function NoticiaDetalle() {
   return (
     <>
       <Helmet>
-        <title>{noticia?.titulo ? `${noticia.titulo} - Levántate Cuba` : "Levántate Cuba - Noticias"}</title>
-        {/* Los meta tags Open Graph son renderizados del lado del servidor por el middleware */}
-        {/* Solo mantenemos tags básicos que no afectan a Facebook */}
+        <title>{noticia?.titulo ? `${noticia.titulo} | LevántateCuba` : "LevántateCuba - Noticias"}</title>
         <meta name="description" content={getCleanDescription(noticia?.contenido)} />
         {noticia?.autor && <meta name="author" content={noticia.autor} />}
+        
+        {/* Canonical y robots */}
+        <link rel="canonical" href={`https://levantatecuba.com/noticias/${noticia?._id}`} />
+        <meta name="robots" content="index,follow,max-image-preview:large" />
+        
+        {/* Open Graph para navegación SPA */}
+        <meta property="og:title" content={noticia?.titulo || "LevántateCuba"} />
+        <meta property="og:description" content={getCleanDescription(noticia?.contenido)} />
+        <meta property="og:image" content={noticia?._cover ? 
+          (noticia._cover.startsWith('http') ? noticia._cover : `https://levantatecuba.com${noticia._cover}`) : 
+          "https://levantatecuba.com/img/og-default.jpg"} />
+        <meta property="og:url" content={`https://levantatecuba.com/noticias/${noticia?._id}`} />
+        <meta property="og:type" content="article" />
+        <meta property="og:site_name" content="LevántateCuba" />
+        
+        {/* Article specific */}
+        <meta property="article:published_time" content={noticia?.createdAt ? new Date(noticia.createdAt).toISOString() : ""} />
+        <meta property="article:section" content={noticia?.categoria || "General"} />
 
-        {/* JSON-LD */}
+        {/* JSON-LD NewsArticle */}
         <script type="application/ld+json">
           {JSON.stringify({
             "@context": "https://schema.org",
             "@type": "NewsArticle",
             "headline": noticia?.titulo || "LevántateCuba",
+            "description": noticia?.contenido ? noticia.contenido.replace(/<[^>]+>/g, "").slice(0, 160) : "",
             "image": [noticia?._cover ? 
               (noticia._cover.startsWith('http') ? noticia._cover : `https://levantatecuba.com${noticia._cover}`) : 
               "https://levantatecuba.com/img/og-default.jpg"],
             "datePublished": noticia?.createdAt ? new Date(noticia.createdAt).toISOString() : new Date().toISOString(),
             "dateModified": noticia?.updatedAt ? new Date(noticia.updatedAt).toISOString() : (noticia?.createdAt ? new Date(noticia.createdAt).toISOString() : new Date().toISOString()),
-            "author": { "@type": "Person", "name": noticia?.autor || "Autor verificado" },
-            "publisher": { "@type": "Organization", "name": "LevántateCuba", "logo": { "@type": "ImageObject", "url": "https://levantatecuba.com/logo.png" } },
-            "description": noticia?.contenido ? noticia.contenido.replace(/<[^>]+>/g, "").slice(0, 160) : "",
+            "author": { 
+              "@type": "Person", 
+              "name": noticia?.autor || "Autor verificado" 
+            },
+            "publisher": { 
+              "@type": "Organization", 
+              "name": "LevántateCuba", 
+              "logo": { 
+                "@type": "ImageObject", 
+                "url": "https://levantatecuba.com/img/logo-organization.png" 
+              } 
+            },
             "url": `https://levantatecuba.com/noticias/${noticia?._id}`,
-            "mainEntityOfPage": { "@type": "WebPage", "@id": `https://levantatecuba.com/noticias/${noticia?._id}` },
+            "mainEntityOfPage": { 
+              "@type": "WebPage", 
+              "@id": `https://levantatecuba.com/noticias/${noticia?._id}` 
+            },
             "articleSection": noticia?.categoria || "General",
             "inLanguage": "es-ES"
           })}
