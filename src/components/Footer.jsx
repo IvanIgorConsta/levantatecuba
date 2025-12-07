@@ -42,6 +42,11 @@ export default function Footer() {
                   Tienda
                 </Link>
               </li>
+              <li>
+                <Link to="/about" className="text-zinc-400 hover:text-white text-sm transition-colors">
+                  Sobre Nosotros
+                </Link>
+              </li>
             </ul>
           </div>
 

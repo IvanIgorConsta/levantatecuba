@@ -1,57 +1,93 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <!-- Páginas principales -->
   <url>
     <loc>https://levantatecuba.com/</loc>
+    <lastmod>2025-12-07</lastmod>
     <priority>1.0</priority>
     <changefreq>daily</changefreq>
   </url>
   <url>
     <loc>https://levantatecuba.com/noticias</loc>
+    <lastmod>2025-12-07</lastmod>
     <priority>0.9</priority>
     <changefreq>hourly</changefreq>
   </url>
   <url>
     <loc>https://levantatecuba.com/denuncias</loc>
+    <lastmod>2025-12-07</lastmod>
     <priority>0.8</priority>
     <changefreq>daily</changefreq>
   </url>
   <url>
     <loc>https://levantatecuba.com/denuncias/nueva</loc>
+    <lastmod>2025-12-07</lastmod>
     <priority>0.7</priority>
     <changefreq>monthly</changefreq>
   </url>
+  
+  <!-- Tienda y servicios -->
   <url>
     <loc>https://levantatecuba.com/tienda</loc>
+    <lastmod>2025-12-07</lastmod>
     <priority>0.7</priority>
     <changefreq>weekly</changefreq>
   </url>
   <url>
     <loc>https://levantatecuba.com/puente-libre</loc>
+    <lastmod>2025-12-07</lastmod>
     <priority>0.7</priority>
     <changefreq>monthly</changefreq>
   </url>
   <url>
+    <loc>https://levantatecuba.com/donar</loc>
+    <lastmod>2025-12-07</lastmod>
+    <priority>0.6</priority>
+    <changefreq>monthly</changefreq>
+  </url>
+  
+  <!-- Información -->
+  <url>
     <loc>https://levantatecuba.com/about</loc>
+    <lastmod>2025-12-07</lastmod>
+    <priority>0.8</priority>
+    <changefreq>monthly</changefreq>
+  </url>
+  <url>
+    <loc>https://levantatecuba.com/contacto</loc>
+    <lastmod>2025-12-07</lastmod>
     <priority>0.6</priority>
     <changefreq>monthly</changefreq>
   </url>
   <url>
+    <loc>https://levantatecuba.com/suscribete</loc>
+    <lastmod>2025-12-07</lastmod>
+    <priority>0.5</priority>
+    <changefreq>monthly</changefreq>
+  </url>
+  
+  <!-- Legal -->
+  <url>
     <loc>https://levantatecuba.com/legal/privacidad</loc>
+    <lastmod>2025-12-07</lastmod>
     <priority>0.3</priority>
     <changefreq>yearly</changefreq>
   </url>
   <url>
     <loc>https://levantatecuba.com/legal/cookies</loc>
+    <lastmod>2025-12-07</lastmod>
     <priority>0.3</priority>
     <changefreq>yearly</changefreq>
   </url>
   <url>
     <loc>https://levantatecuba.com/legal/terminos</loc>
+    <lastmod>2025-12-07</lastmod>
     <priority>0.3</priority>
     <changefreq>yearly</changefreq>
   </url>
   <url>
     <loc>https://levantatecuba.com/legal/contenido-usuarios</loc>
+    <lastmod>2025-12-07</lastmod>
     <priority>0.3</priority>
     <changefreq>yearly</changefreq>
   </url>
