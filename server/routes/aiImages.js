@@ -561,4 +561,98 @@ router.get("/status", (req, res) => {
   });
 });
 
+/**
+ * POST /api/ai/generate-cover
+ * Genera portada simple usando el flujo directo (solo título)
+ * Mismo mecanismo que Redactor IA
+ */
+router.post("/generate-cover", checkAIEnabled, async (req, res) => {
+  try {
+    const { newsId, title } = req.body;
+    
+    if (!newsId || !title?.trim()) {
+      return res.status(400).json({
+        error: "Se requiere newsId y título"
+      });
+    }
+    
+    console.log(`[AI:SimpleCover] Generando portada para noticia ${newsId}`);
+    console.log(`[AI:SimpleCover] Título: "${title.substring(0, 80)}..."`);
+    
+    // Verificar que la noticia existe
+    const news = await News.findById(newsId);
+    if (!news) {
+      return res.status(404).json({
+        error: "Noticia no encontrada"
+      });
+    }
+    
+    // Usar el mismo flujo de Redactor IA
+    const { generateWithProvider } = require('../redactor_ia/services/imageProvider');
+    const { buildNeoRenaissancePrompt } = require('../redactor_ia/services/promptTemplates');
+    const crypto = require('crypto');
+    const { saveBase64Png } = require('../services/imageProcessor');
+    
+    // Construir prompt directo (solo título)
+    const { prompt } = buildNeoRenaissancePrompt(title.trim());
+    
+    console.log(`[AI:SimpleCover] Prompt: "${prompt}"`);
+    
+    // Generar imagen con el proveedor configurado
+    const provider = process.env.IMG_DEFAULT_PROVIDER || 'dall-e-3';
+    const result = await generateWithProvider({
+      provider,
+      mode: 'synthesize_from_context',
+      draftId: newsId,
+      prompt,
+      title: title.trim(),
+      summary: '',
+      category: news.categoria || '',
+      _imageContext: {
+        theme: 'direct',
+        mode: 'direct_title',
+        style: 'editorial',
+        locale: 'es-CU'
+      }
+    });
+    
+    if (!result.ok) {
+      throw new Error(result.error || 'Error generando imagen');
+    }
+    
+    // Guardar imagen
+    let coverUrl;
+    if (result.url) {
+      coverUrl = result.url;
+    } else if (result.b64) {
+      const nameHash = crypto.createHash('sha1').update(`${newsId}-${Date.now()}`).digest('hex');
+      const filename = `cover_${nameHash}.png`;
+      const { publicUrl } = await saveBase64Png(result.b64, filename);
+      coverUrl = publicUrl;
+    } else {
+      throw new Error('No se recibió imagen del proveedor');
+    }
+    
+    // Actualizar noticia con la nueva portada
+    news.imagen = coverUrl;
+    news._cover = coverUrl;
+    news._coverHash = crypto.createHash('sha1').update(coverUrl).digest('hex').substring(0, 8);
+    await news.save();
+    
+    console.log(`[AI:SimpleCover] ✅ Portada generada: ${coverUrl}`);
+    
+    res.json({
+      ok: true,
+      coverUrl,
+      provider: result.provider,
+      newsId
+    });
+    
+  } catch (error) {
+    console.error('[AI:SimpleCover] Error:', error.message);
+    const { status, body } = mapErrorToResponse(error);
+    return res.status(status).json(body);
+  }
+});
+
 module.exports = router;

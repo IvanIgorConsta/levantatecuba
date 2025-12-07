@@ -83,16 +83,22 @@ export default function Noticias() {
             });
 
             // Texto plano para que line-clamp funcione de forma estable
-            const _extractoPlanoFuente = _contenidoHTML
+            let _extractoPlanoFuente = _contenidoHTML
               .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, " ")
               .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, " ")
               .replace(/<[^>]+>/g, " ")
               .replace(/\s+/g, " ")
               .trim();
 
+            // Eliminar "Contexto del hecho" y fechas del inicio del extracto
+            _extractoPlanoFuente = _extractoPlanoFuente
+              .replace(/^Contexto del hecho\s*/i, "")
+              .replace(/^(El\s+)?\d{1,2}\s+de\s+(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)\s+de\s+\d{4}[,.\s]*/gi, "")
+              .trim();
+
             const _extractoPlano =
-              _extractoPlanoFuente.length > 280
-                ? _extractoPlanoFuente.slice(0, 277) + "…"
+              _extractoPlanoFuente.length > 120
+                ? _extractoPlanoFuente.slice(0, 117) + "…"
                 : _extractoPlanoFuente;
 
             return {
@@ -300,11 +306,12 @@ export default function Noticias() {
               )}
             </div>
 
-            {/* Título + Extracto */}
-            <h2 className="text-lg md:text-xl font-bold line-clamp-2 mt-0.5 mb-1 leading-snug text-white transition-colors duration-200">
+            {/* Título */}
+            <h2 className="text-base md:text-lg font-bold mt-0.5 leading-snug text-white transition-colors duration-200">
               {n.titulo}
             </h2>
-            <p className="excerpt text-sm sm:text-base md:text-base text-zinc-300 leading-snug break-words">
+            {/* Mini resumen - altura fija 2 líneas */}
+            <p className="excerpt mt-2 text-sm text-zinc-400 leading-snug">
               {n.extractoPlano}
             </p>
           </div>
@@ -429,11 +436,11 @@ export default function Noticias() {
       </Helmet>
 
       <style>{`
-/* ===== Altura fija + proporción de imagen (desktop más compacto) ===== */
-:root { --card-h: 520px; --img-ratio: 0.45; }                  /* móvil / base */
-@media (min-width: 1024px)  { :root { --card-h: 560px; --img-ratio: 0.42; } } /* ↑ antes 0.40 */
-@media (min-width: 1280px)  { :root { --card-h: 580px; --img-ratio: 0.40; } } /* ↑ antes 0.36 */
-@media (min-width: 1536px)  { :root { --card-h: 600px; --img-ratio: 0.38; } } /* ↑ antes 0.34 */
+/* ===== Altura fija + proporción de imagen (más espacio para títulos) ===== */
+:root { --card-h: 480px; --img-ratio: 0.42; }                  /* móvil / base */
+@media (min-width: 1024px)  { :root { --card-h: 500px; --img-ratio: 0.40; } }
+@media (min-width: 1280px)  { :root { --card-h: 520px; --img-ratio: 0.38; } }
+@media (min-width: 1536px)  { :root { --card-h: 540px; --img-ratio: 0.36; } }
 
   /* Flechas del carrusel nativo - fuera del viewport, área táctil segura */
   .custom-arrow {
@@ -500,17 +507,17 @@ export default function Noticias() {
     display: none;
   }
 
-  /* === Tarjeta: altura uniforme y sin "huecos" === */
-  .news-card { display:flex; flex-direction:column; height:var(--card-h); min-height:var(--card-h); max-height:var(--card-h); overflow:hidden; }
+  /* === Tarjeta: altura FIJA uniforme === */
+  .news-card { display:flex; flex-direction:column; height:var(--card-h); overflow:hidden; }
   .news-card__media { width:100%; height: calc(var(--card-h) * var(--img-ratio)); overflow:hidden; flex-shrink:0; }
   .news-card__media img { width:100%; height:100%; object-fit:cover; }
-  .news-card__body { flex: 0 0 auto; }              /* el cuerpo no "estira" la tarjeta */
-  .news-card__footer { margin-top:auto; flex-shrink:0; } /* pie fijo al fondo */
+  .news-card__body { flex: 1 1 auto; overflow:hidden; display:flex; flex-direction:column; }
+  .news-card__footer { margin-top:auto; flex-shrink:0; } /* pie SIEMPRE fijo al fondo */
 
-  /* Clamps para evitar desbordes */
-  .news-card h2{ display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
-  .news-card .excerpt{ display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
-  @media (min-width:1024px){ .news-card .excerpt{ -webkit-line-clamp:3; } } /* ↑ antes 2 líneas en desktop */
+  /* Título: altura fija máximo 4 líneas */
+  .news-card h2{ display:-webkit-box; -webkit-line-clamp:4; -webkit-box-orient:vertical; overflow:hidden; word-wrap:break-word; flex:1 1 auto; max-height:5.5em; }
+  /* Extracto: altura fija 3 líneas */
+  .news-card .excerpt{ display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; min-height:3.9em; max-height:3.9em; flex-shrink:0; margin-top:auto; }
 
   /* Ajustes mobile */
   @media (max-width: 767px) {
