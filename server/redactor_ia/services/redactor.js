@@ -671,6 +671,7 @@ Amplía el artículo a mínimo 3000 caracteres manteniendo:
       console.warn('[Redactor] ⚠️  No hay URL de fuente disponible para captura automática');
     }
   } else if (config.autoGenerateImages) {
+    console.log('[Redactor] 🎨 Modo generación IA activado: creando imagen con IA...');
     // Crear draft temporal con contexto completo para builder contextual
     const tempDraft = {
       titulo: norm.titulo,
@@ -729,6 +730,8 @@ Amplía el artículo a mínimo 3000 caracteres manteniendo:
         console.error('[Redactor] Error persistiendo imagen:', error.message);
       }
     }
+  } else {
+    console.log('[Redactor] ⚠️ Generación automática de imágenes desactivada (autoGenerateImages=false, autoCaptureImageFromSourceOnCreate=false)');
   }
 
   // Calcular originalityScore y contentOrigin

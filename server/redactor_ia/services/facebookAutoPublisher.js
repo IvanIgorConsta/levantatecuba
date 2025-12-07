@@ -68,6 +68,17 @@ function buildFacebookCandidatesFilter() {
           { facebook_status: 'not_shared' },
           { facebook_status: { $exists: false } }
         ]
+      },
+      // Excluir noticias que están siendo publicadas o ya publicadas
+      {
+        facebook_status: { $nin: ['sharing', 'published'] }
+      },
+      // Excluir noticias que ya tienen facebook_post_id (doble seguridad)
+      {
+        $or: [
+          { facebook_post_id: null },
+          { facebook_post_id: { $exists: false } }
+        ]
       }
     ]
   };

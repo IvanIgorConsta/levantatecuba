@@ -18,74 +18,39 @@ const {
 } = require('../utils/titleTransformer');
 
 /**
- * Construye prompt contextual desde bajada, contenido, título, categoría y tags
+ * Construye prompt DIRECTO desde título
  * 
- * FILOSOFÍA:
- * - SIEMPRE usar contexto completo (bajada > contenido > título)
- * - Si el contenido es POLÍTICO → Usa prompt profesional contextual (NO genérico)
- * - Si NO es político → Usa prompt contextual basado en brief real
+ * MODO DIRECTO:
+ * - Solo usa el título de la noticia
+ * - Sin filtros, sin restricciones, sin detección de contenido
+ * - Envía directamente al proveedor de imágenes
  * 
  * @param {string} title - Título de la noticia (REQUERIDO)
- * @param {Object} [options] - Opciones adicionales
- * @param {string} [options.bajada] - Bajada/resumen (PRIORIDAD ALTA para contexto)
- * @param {string} [options.content] - Contenido completo del borrador
- * @param {string} [options.category] - Categoría de la noticia
- * @param {Array<string>} [options.tags] - Tags/etiquetas
+ * @param {Object} [options] - Opciones adicionales (ignoradas en modo directo)
  * @returns {{ prompt: string, negative: string, style: string, mode: string }}
  */
 function buildNeoRenaissancePrompt(title, options = {}) {
   if (!title || typeof title !== 'string' || title.trim().length === 0) {
     console.warn('[PromptBuilder] Título vacío, usando prompt por defecto');
     return {
-      prompt: 'Ilustración editorial moderna y profesional para noticia periodística.',
+      prompt: 'Imagen periodística editorial, formato horizontal.',
       negative: '',
       style: 'editorial',
       mode: 'generic_fallback'
     };
   }
   
-  // Extraer parámetros contextuales
-  const bajada = options.bajada || '';
-  const content = options.content || '';
-  const category = options.category || '';
-  const tags = options.tags || [];
+  // MODO DIRECTO: Solo título + contexto mínimo
+  const prompt = `${title.trim()}. Imagen periodística, formato horizontal 16:9.`;
   
-  // DETECCIÓN DE CONTENIDO POLÍTICO
-  const textToAnalyze = (title + ' ' + bajada + ' ' + content).substring(0, 1500);
-  
-  if (isPoliticalContent(textToAnalyze)) {
-    // CASO POLÍTICO: Usar prompt profesional contextual (detecta subtemas)
-    const prompt = buildPoliticalImagePrompt(title, content, bajada, category);
-    
-    console.log(`[PromptBuilder] 🎯 POLÍTICO detectado → Prompt contextual profesional (${prompt.length} chars)`);
-    console.log(`[PromptBuilder] Enfoque: Tema específico basado en contexto, NO patrón genérico`);
-    
-    return {
-      prompt,
-      negative: '',
-      style: 'cinematic_editorial',
-      mode: 'political_contextual'
-    };
-  }
-  
-  // CASO NO POLÍTICO: Usar prompt contextual basado en brief completo
-  const prompt = buildImagePromptFromTitle({
-    title,
-    bajada,
-    contenido: content,
-    category,
-    tags
-  });
-  
-  console.log(`[PromptBuilder] ✅ NO político → Prompt contextual generado (${prompt.length} chars)`);
-  console.log(`[PromptBuilder] Contexto: bajada=${!!bajada} content=${content.length}chars category="${category}" tags=${tags.length}`);
-  console.log(`[PromptBuilder] Preview: "${prompt.substring(0, 100)}..."`);
+  console.log(`[PromptBuilder] 🚀 MODO DIRECTO → Título enviado al proveedor`);
+  console.log(`[PromptBuilder] Prompt (${prompt.length} chars): "${prompt}"`);
   
   return {
     prompt,
     negative: '',
     style: 'editorial',
-    mode: 'contextual'
+    mode: 'direct_title'
   };
 }
 
