@@ -433,12 +433,23 @@ async function getPageTokenFromUserToken(userToken, targetPageId) {
 
 /**
  * Construye URL pública de una noticia
- * @param {string} newsId - ID de la noticia
- * @returns {string} URL absoluta HTTPS
+ * @param {string|Object} newsOrId - ID de la noticia o objeto news completo
+ * @param {string} [slug] - Slug opcional (si se pasa newsOrId como string)
+ * @returns {string} URL absoluta HTTPS (usa slug si está disponible, sino ID)
  */
-function buildNewsPublicUrl(newsId) {
+function buildNewsPublicUrl(newsOrId, slug = null) {
   const base = process.env.PUBLIC_ORIGIN || 'https://levantatecuba.com';
-  const url = new URL(`/noticias/${newsId}`, base);
+  
+  // Si es un objeto news, extraer slug o _id
+  let identifier;
+  if (typeof newsOrId === 'object' && newsOrId !== null) {
+    identifier = newsOrId.slug || newsOrId._id;
+  } else {
+    // Es un string (ID), usar slug si se proporcionó
+    identifier = slug || newsOrId;
+  }
+  
+  const url = new URL(`/noticias/${identifier}`, base);
   return url.toString();
 }
 
@@ -1592,8 +1603,8 @@ async function publishNewsToFacebook(news, options = {}) {
     }
   }
   
-  // Construir URL pública de la noticia
-  const canonicalUrl = buildNewsPublicUrl(news._id);
+  // Construir URL pública de la noticia (usa slug si existe, sino ID)
+  const canonicalUrl = buildNewsPublicUrl(news);
   
   // Construir mensaje según formato requerido
   const titulo = (news.titulo || '').trim();
