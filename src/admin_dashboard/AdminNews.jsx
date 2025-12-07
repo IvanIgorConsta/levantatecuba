@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import NewsForm from "./components/NewsForm";
 import NewsListPanel from "./components/NewsListPanel";
-import AIImageGenerator from "./components/AIImageGenerator";
+import AIImageGeneratorSimple from "./components/AIImageGeneratorSimple";
 import AdminCommentsManager from "./components/AdminCommentsManager";
 import CommentsOverlay from "./components/CommentsOverlay";
 import { fileFromUrl, generateAIImageFilename } from "../utils/fileFromUrl";
@@ -885,17 +885,17 @@ export default function AdminNews() {
         isUploadingAIOptional={isUploadingAIOptional}
       />
 
-      {/* === Generación de imágenes por IA (Portada 16:9 + Secundaria 1:1) === */}
-      <AIImageGenerator
+      {/* === Generación de portada con IA (simplificado) === */}
+      <AIImageGeneratorSimple
         newsId={editId}
         title={form.titulo}
         content={form.contenido}
-        disabled={false}
-        onPickCover={handleAIImageAsMain}
-        onPickSecondary={handleAIImageAsOptional}
-        onTempChange={(tempData) => {
-          // Opcional: logging de cambios temporales
-          console.log('[AI] Cambio temporal:', tempData);
+        disabled={!editId}
+        onImageGenerated={(coverUrl) => {
+          // Actualizar el formulario con la nueva imagen
+          setForm(prev => ({ ...prev, imagen: coverUrl }));
+          // Refrescar la lista para ver el cambio
+          fetchNoticias({ page: currentPage, limit: pageSize, ...filtros });
         }}
       />
       {/* === Fin Generación IA === */}

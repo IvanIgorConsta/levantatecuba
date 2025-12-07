@@ -81,7 +81,7 @@ export default function URLDraftGenerator({ onDraftGenerated }) {
           type="button"
           onClick={handleGenerate}
           disabled={loading || !url.trim()}
-          className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-zinc-700 disabled:cursor-not-allowed text-white text-sm font-medium rounded transition-colors duration-200 whitespace-nowrap mt-7"
+          className="btn-primary text-sm whitespace-nowrap mt-7"
         >
           {loading ? "Generando..." : "Generar"}
         </button>

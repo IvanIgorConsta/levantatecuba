@@ -157,7 +157,17 @@ body {
 
   /* Select admin */
   .admin-select {
-    @apply w-full bg-zinc-900/80 border border-zinc-800 text-white/90 rounded-lg px-3 py-2.5 outline-none transition focus:ring-2 focus:ring-red-500/30 focus:border-red-500/50;
+    @apply w-full bg-zinc-900 border border-zinc-700 text-white/90 rounded-lg px-3 py-2.5 outline-none transition focus:ring-2 focus:ring-red-500/30 focus:border-red-500/50;
+  }
+
+  .admin-select option {
+    @apply bg-zinc-900 text-white py-2;
+  }
+
+  .admin-select option:hover,
+  .admin-select option:checked {
+    background-color: #3f3f46 !important; /* zinc-700 */
+    color: white !important;
   }
 
   /* Botones primarios (rojo) */

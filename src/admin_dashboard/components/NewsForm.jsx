@@ -231,17 +231,6 @@ export default function NewsForm({
           )}
         </div>
 
-        {/* Imagen opcional */}
-        <ImageUpload
-          fileInputRef={null}
-          optionalImageRef={optionalImageRef}
-          imagenPreview={null}
-          imagenOpcionalPreview={imagenOpcionalPreview}
-          onImageChange={() => {}}
-          onOptionalImageChange={handleOptionalImageChange}
-          onRemoveOptionalImage={handleRemoveOptionalImage}
-        />
-
         <RichTextEditor
           value={form.contenido}
           onChange={handleContentChange}
