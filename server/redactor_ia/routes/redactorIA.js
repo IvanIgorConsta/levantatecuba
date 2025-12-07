@@ -21,6 +21,8 @@ const { getUsageStats } = require('../services/statsService');
 const { generateRevision, applyRevision, getRevisionStatus } = require('../services/reviewService');
 const crypto = require('crypto');
 const categories = require('../config/categories');
+const { imageGenerationQueue, getAllQueueStats } = require('../../utils/operationQueue');
+const { notifyNewNews } = require('../../services/indexNow');
 
 // Rate limiting para operaciones costosas
 const scanLimiter = rateLimit({
@@ -35,6 +37,15 @@ const generateLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minuto
   max: 20, // 20 generaciones por minuto
   message: { error: 'Demasiadas solicitudes de generación. Intenta en 1 minuto.' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+// Rate limiter específico para imágenes (más restrictivo)
+const imageLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minuto
+  max: 6, // 6 imágenes por minuto máximo
+  message: { error: 'Demasiadas solicitudes de generación de imágenes. Espera un momento.' },
   standardHeaders: true,
   legacyHeaders: false
 });
@@ -183,6 +194,27 @@ router.get('/scan/status', requireEditor, async (req, res) => {
     res.json(status);
   } catch (error) {
     res.status(500).json({ error: 'Error al obtener estado' });
+  }
+});
+
+/**
+ * GET /api/redactor-ia/queue/status
+ * Obtiene estado de las colas de operaciones pesadas
+ */
+router.get('/queue/status', requireEditor, async (req, res) => {
+  try {
+    const stats = getAllQueueStats();
+    res.json({
+      success: true,
+      queues: stats,
+      serverMemory: {
+        used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
+        total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024),
+        unit: 'MB'
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Error al obtener estado de colas' });
   }
 });
 
@@ -618,8 +650,12 @@ router.patch('/drafts/:id', requireEditor, async (req, res) => {
  * Body: 
  *   - {} (vacío) = usa config automática con contexto completo
  *   - { mode: 'custom_prompt', prompt: 'text' } = usa prompt manual del usuario
+ * 
+ * PROTECCIÓN: Rate limit + cola de operaciones para evitar sobrecarga
  */
-router.post('/drafts/:id/generate-image', requireEditor, async (req, res) => {
+router.post('/drafts/:id/generate-image', imageLimiter, requireEditor, async (req, res) => {
+  const draftId = req.params.id;
+  
   try {
     // Normalizar userId: extraer solo ObjectId, nunca objeto completo
     const mongoose = require('mongoose');
@@ -628,7 +664,19 @@ router.post('/drafts/:id/generate-image', requireEditor, async (req, res) => {
     
     const { mode, prompt } = req.body;
     
-    console.log(`[API:Manual] Generando imagen. Usuario: ${req.user?.email || 'unknown'}, userId: ${userId || 'none'}, mode: ${mode || 'auto'}`);
+    // Verificar si hay muchas operaciones en cola
+    const pendingOps = imageGenerationQueue.getPendingCount();
+    if (pendingOps >= 5) {
+      console.warn(`[API:Image] ⚠️ Cola saturada (${pendingOps} pendientes). Rechazando petición.`);
+      return res.status(503).json({
+        success: false,
+        ok: false,
+        error: 'El servidor está procesando muchas imágenes. Intenta en unos segundos.',
+        queueStatus: { pending: pendingOps }
+      });
+    }
+    
+    console.log(`[API:Manual] Generando imagen (cola: ${pendingOps} pendientes). Usuario: ${req.user?.email || 'unknown'}, mode: ${mode || 'auto'}`);
     
     // Si es modo custom_prompt, usar el prompt del usuario
     let customPrompt = null;
@@ -637,14 +685,19 @@ router.post('/drafts/:id/generate-image', requireEditor, async (req, res) => {
       console.log(`[API:Manual] Usando prompt manual: "${customPrompt.substring(0, 100)}..."`);
     }
     
-    // Generar imagen con config automática o prompt manual
-    const draft = await generateImageForDraft(
-      req.params.id,
-      null,  // providerOverride = null → usa config automática
-      false, // force = false
-      customPrompt ? 'custom_prompt' : 'auto', // mode
-      userId, // Pasar solo ObjectId válido o null
-      customPrompt ? { customPrompt } : {} // Pasar prompt manual si existe
+    // Encolar la operación de generación de imagen
+    const draft = await imageGenerationQueue.enqueue(
+      async () => {
+        return await generateImageForDraft(
+          draftId,
+          null,  // providerOverride = null → usa config automática
+          false, // force = false
+          customPrompt ? 'custom_prompt' : 'auto', // mode
+          userId, // Pasar solo ObjectId válido o null
+          customPrompt ? { customPrompt } : {} // Pasar prompt manual si existe
+        );
+      },
+      { timeout: 120000 } // 2 minutos máximo por imagen
     );
     
     // Devolver draft con populates para el frontend
@@ -688,6 +741,9 @@ router.post('/drafts/:id/generate-image', requireEditor, async (req, res) => {
       statusCode = 403;
     } else if (error.message?.includes('locale is not defined')) {
       errorMessage = 'Error de configuración interna (locale). Contacta soporte.';
+    } else if (error.message?.includes('timeout') || error.message?.includes('excedió')) {
+      errorMessage = 'La generación tardó demasiado. Intenta de nuevo.';
+      statusCode = 504;
     }
     
     res.status(statusCode).json({ 
@@ -696,7 +752,7 @@ router.post('/drafts/:id/generate-image', requireEditor, async (req, res) => {
       error: errorMessage,
       reason: error.message,
       provider: 'unknown',
-      draftId: req.params.id
+      draftId: draftId
     });
   }
 });
@@ -705,8 +761,10 @@ router.post('/drafts/:id/generate-image', requireEditor, async (req, res) => {
  * POST /api/redactor-ia/drafts/:id/capture-cover-from-source
  * Captura la imagen principal desde el sitio web original de la noticia
  * Extrae og:image u otra imagen destacada y la procesa localmente
+ * 
+ * PROTECCIÓN: Rate limit + cola de operaciones para evitar sobrecarga
  */
-router.post('/drafts/:id/capture-cover-from-source', requireEditor, async (req, res) => {
+router.post('/drafts/:id/capture-cover-from-source', imageLimiter, requireEditor, async (req, res) => {
   try {
     const draft = await AiDraft.findById(req.params.id);
     if (!draft) {
@@ -961,6 +1019,11 @@ router.put('/drafts/:id/review', requireEditor, async (req, res) => {
           });
           
           console.log('[API:Aprobar] ✅ Noticia creada exitosamente:', createdNews._id);
+          
+          // 📡 Notificar a motores de búsqueda (IndexNow)
+          notifyNewNews(createdNews).catch(err => 
+            console.warn('[IndexNow] Error al notificar:', err.message)
+          );
           
           // Procesar imagen real en background si hay URL
           if (draft.sourceImageUrl) {

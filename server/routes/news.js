@@ -9,6 +9,7 @@ const { body, validationResult } = require("express-validator");
 const verifyToken = require("../middleware/verifyToken");
 const verifyRole = require("../middleware/verifyRole");
 const { buildFacebookCandidatesFilter, isNewsAFacebookCandidate } = require("../redactor_ia/services/facebookAutoPublisher");
+const { notifyNewNews } = require("../services/indexNow");
 
 // 📦 Multer para imágenes
 const storage = multer.diskStorage({
@@ -473,6 +474,14 @@ router.post(
       });
 
       const guardada = await noticia.save();
+      
+      // 📡 Notificar a motores de búsqueda si está publicada
+      if (guardada.status === 'published') {
+        notifyNewNews(guardada).catch(err => 
+          console.warn('[IndexNow] Error al notificar:', err.message)
+        );
+      }
+      
       res.status(201).json(guardada);
     } catch (err) {
       console.error("❌ Error al guardar noticia:", err);
