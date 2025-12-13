@@ -8,12 +8,24 @@ Allow: /noticias/
 Allow: /denuncias
 Allow: /tienda
 Allow: /tasas
+Allow: /about
 
 # Bloquear rutas privadas
 Disallow: /admin
 Disallow: /api/
 Disallow: /login
 Disallow: /register
+Disallow: /dashboard
 
-# Sitemap
-Sitemap: https://levantatecuba.com/sitemap.xml
+# Permitir sitemap dinámico
+Allow: /api/news/sitemap.xml
+
+# Sitemap dinámico con todas las noticias
+Sitemap: https://levantatecuba.com/api/news/sitemap.xml
+
+# Crawl-delay para bots agresivos
+User-agent: AhrefsBot
+Crawl-delay: 10
+
+User-agent: SemrushBot
+Crawl-delay: 10

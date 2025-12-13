@@ -70,14 +70,14 @@ const AiDraftSchema = new Schema(
     // Tipo de imagen generada: 'processed' (de fuente), 'ai' (IA), 'editorial' (foto real) o 'placeholder'
     imageKind: { 
       type: String, 
-      enum: ['processed', 'ai', 'placeholder', 'external', 'internal', 'editorial'], 
+      enum: ['processed', 'ai', 'placeholder', 'external', 'internal', 'editorial', 'uploaded', 'manual'], 
       default: null 
     },
     
     // Proveedor real que generó la imagen (trackea el proveedor efectivo usado)
     imageProvider: {
       type: String,
-      enum: ['dall-e-3', 'dall-e-2', 'hailuo', 'internal', 'stable-diffusion', 'midjourney'],
+      enum: ['dall-e-3', 'dall-e-2', 'hailuo', 'internal', 'stable-diffusion', 'midjourney', 'manual', 'gemini'],
       default: 'dall-e-3'
     },
     

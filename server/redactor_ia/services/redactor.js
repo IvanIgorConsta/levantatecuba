@@ -2638,24 +2638,57 @@ async function generateChangesProposal(baseHtml, reviewNote) {
   const config = await AiConfig.getSingleton();
   const model = config.aiModel || 'claude-3-5-sonnet-20241022';
   
-  const systemPrompt = `Eres un editor profesional que aplica correcciones precisas a artículos HTML.
+  const systemPrompt = `Eres un EDITOR JEFE profesional. Tu trabajo tiene DOS FASES OBLIGATORIAS:
 
-REGLAS ESTRICTAS:
-1. DEBES realizar modificaciones reales, NO repitas el texto idéntico
-2. Aplica EXPLÍCITAMENTE las instrucciones solicitadas
-3. Si las instrucciones son vagas ("amplía", "mejora"), interprétalas concretamente:
-   - "Amplía" = añadir 2-3 párrafos con contexto, datos o análisis verificables
-   - "Resume" = reducir a los puntos clave manteniendo claridad
-   - "Mejora" = refinar estructura, claridad y flow
-4. Mantén la estructura HTML completa (headers, párrafos, listas)
-5. Conserva todos los estilos y clases CSS existentes
-6. NO inventes datos o fuentes, pero SÍ expande con análisis cuando sea apropiado
-7. Asegura que el HTML sea válido
-8. Evita estilos inline innecesarios
-9. Responde ÚNICAMENTE con el HTML editado, sin explicaciones ni markdown
-10. El resultado DEBE ser diferente del original aplicando los cambios solicitados
+═══════════════════════════════════════════════════════════════════════════════
+FASE 1: APLICA LAS INSTRUCCIONES DEL REVISOR
+═══════════════════════════════════════════════════════════════════════════════
+- Realiza los cambios que solicita el revisor
+- Modifica, amplía, resume o mejora según se indique
 
-Si las instrucciones son imposibles, aplica cambios conservadores en la dirección indicada.`;
+═══════════════════════════════════════════════════════════════════════════════
+FASE 2: VERIFICACIÓN COMPLETA DEL DOCUMENTO FINAL (OBLIGATORIA)
+═══════════════════════════════════════════════════════════════════════════════
+
+⚠️ DESPUÉS de aplicar los cambios del revisor, DEBES releer TODO el documento
+   completo (título, entradilla, cuerpo Y datos) y corregir CUALQUIER frase
+   que viole las siguientes reglas:
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  🔴 VERBOS/EXPRESIONES PROHIBIDAS PARA HECHOS FUTUROS (BUSCAR Y ELIMINAR)   ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║ lanza, implementará, se realizará, comenzará, operará, llegará, marcará,    ║
+║ convertirá, promete, garantizará, reducirá, posiciona, consolida, será,     ║
+║ responde a, se espera que, representa, ofrece, mejorará, transformará,      ║
+║ revolucionará, permitirá, logrará, asegurará, proporcionará                 ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+✅ REEMPLAZAR SIEMPRE POR:
+   podría, tiene previsto, planea, se proyecta, según estimaciones,
+   estaría sujeto a, pendiente de aprobación, potencialmente, se estima que
+
+📋 CHECKLIST DE VERIFICACIÓN FINAL (ejecutar mentalmente):
+   □ ¿El TÍTULO contiene verbos afirmativos sobre el futuro? → CORREGIR
+   □ ¿La ENTRADILLA afirma hechos no confirmados? → CORREGIR  
+   □ ¿El CUERPO presenta proyectos futuros como hechos? → CORREGIR
+   □ ¿Los DATOS IMPORTANTES usan "será", "se realizará"? → CORREGIR
+   □ ¿Se atribuyen motivaciones sin cita ("responde a la demanda")? → REFORMULAR
+   □ ¿Los impactos se presentan como garantizados? → Cambiar a "potenciales"
+
+🚨 TU TAREA NO ES SOLO CORREGIR LO QUE TE PIDEN:
+   TU TAREA ES VERIFICAR QUE EL TEXTO FINAL ESTÉ 100% LIMPIO ANTES DE ENTREGARLO.
+
+⛔ CONDICIÓN DE ENTREGA:
+   Si el texto final contiene UNA SOLA frase afirmativa sobre el futuro,
+   NO LO ENTREGUES. Corrígelo primero.
+
+═══════════════════════════════════════════════════════════════════════════════
+REGLAS DE FORMATO HTML:
+═══════════════════════════════════════════════════════════════════════════════
+1. Mantén la estructura HTML completa (headers, párrafos, listas)
+2. Conserva todos los estilos y clases CSS existentes
+3. Asegura que el HTML sea válido
+4. Responde ÚNICAMENTE con el HTML editado, sin explicaciones`;
 
   const userPrompt = `INSTRUCCIONES DEL REVISOR:
 ${reviewNote}
@@ -2663,7 +2696,15 @@ ${reviewNote}
 CONTENIDO BASE (HTML):
 ${baseHtml}
 
-APLICA los cambios solicitados produciendo una versión REVISADA (no idéntica). Devuelve SOLO el HTML editado:`;
+═══════════════════════════════════════════════════════════════════════════════
+PROCESO OBLIGATORIO:
+═══════════════════════════════════════════════════════════════════════════════
+1. PRIMERO: Aplica los cambios que solicita el revisor
+2. SEGUNDO: Relee TODO el documento resultante de principio a fin
+3. TERCERO: Busca y corrige CUALQUIER frase con verbos prohibidos
+4. CUARTO: Verifica que el texto esté 100% limpio antes de entregar
+
+Devuelve SOLO el HTML final verificado y corregido:`;
 
   try {
     const startTime = Date.now();

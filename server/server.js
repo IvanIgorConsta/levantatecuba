@@ -292,7 +292,7 @@ app.use("/api/tienda", require("./routes/store")); // Rutas de la tienda interna
 app.use("/api/shopify", require("./routes/shopify")); // Rutas de Shopify Storefront API
 app.use("/api/redactor-ia", authLimiter, require("./redactor_ia/routes/redactorIA")); // Redactor IA
 
-// Endpoint directo para generar desde texto (usa el mismo módulo de redactor.js)
+// Endpoint directo para generar desde texto → Crea borrador en Redactor IA
 app.post("/api/generar-desde-texto", authLimiter, verifyToken, verifyRole(['admin', 'editor']), async (req, res) => {
   try {
     const { texto, mode = 'factual' } = req.body;
@@ -320,23 +320,25 @@ app.post("/api/generar-desde-texto", authLimiter, verifyToken, verifyRole(['admi
     };
     
     const normalizedMode = mode === 'opinion' ? 'opinion' : 'factual';
-    console.log(`[API] Generando desde texto (${texto.length} chars) modo: ${normalizedMode}`);
+    console.log(`[API:TextDraft] Generando desde texto (${texto.length} chars) modo: ${normalizedMode}`);
     
+    // generateSingleDraft YA crea y guarda el borrador en la DB
+    // NO crear otro borrador adicional para evitar duplicados
     const draft = await generateSingleDraft(virtualTopic, req.user, normalizedMode, config, 'standard');
     
-    // Convertir markdown a HTML usando marked (igual que redactor.js)
-    const contenidoHtml = marked(draft.contenidoMarkdown || '');
+    console.log(`[API:TextDraft] ✅ Borrador creado en Redactor IA: ${draft._id}`);
     
     res.json({
       ok: true,
-      titulo: draft.titulo || '',
-      categoria: draft.categoria || 'General',
-      bajada: draft.bajada || '',
-      contenidoHtml: contenidoHtml,
-      etiquetas: draft.etiquetas || []
+      message: 'Borrador creado en Redactor IA',
+      draftId: draft._id.toString(),
+      titulo: draft.titulo,
+      categoria: draft.categoria,
+      // Flag para indicar al frontend que NO debe llenar el formulario de noticias
+      redirectToRedactor: true
     });
   } catch (error) {
-    console.error('[API] Error generando desde texto:', error);
+    console.error('[API:TextDraft] Error generando desde texto:', error);
     res.status(500).json({ error: 'Error al generar borrador', message: error.message });
   }
 });

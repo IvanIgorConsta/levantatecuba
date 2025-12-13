@@ -1,12 +1,32 @@
 // src/admin_dashboard/redactor_ia/RedactorIA.jsx
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { BookOpen, Sparkles, Settings } from 'lucide-react';
 import ColaTemas from './ColaTemas';
 import BorradoresIA from './BorradoresIA';
 import ConfiguracionIA from './ConfiguracionIA';
 
 export default function RedactorIA() {
-  const [activeTab, setActiveTab] = useState('cola');
+  const location = useLocation();
+  const navigate = useNavigate();
+  
+  // Leer tab inicial desde query param (?tab=borradores)
+  const getInitialTab = () => {
+    const params = new URLSearchParams(location.search);
+    const tabParam = params.get('tab');
+    if (tabParam && ['cola', 'borradores', 'config'].includes(tabParam)) {
+      return tabParam;
+    }
+    return 'cola';
+  };
+  
+  const [activeTab, setActiveTab] = useState(getInitialTab);
+  
+  // Actualizar URL cuando cambia el tab
+  const handleTabChange = (tabId) => {
+    setActiveTab(tabId);
+    navigate(`/admin/redactor-ia?tab=${tabId}`, { replace: true });
+  };
 
   const tabs = [
     { id: 'cola', label: 'Cola de Temas', icon: BookOpen },
@@ -38,7 +58,7 @@ export default function RedactorIA() {
               return (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => handleTabChange(tab.id)}
                   role="tab"
                   aria-selected={activeTab === tab.id}
                   className={`shrink-0 rounded-xl px-3 sm:px-4 lg:px-5 xl:px-6 h-10 lg:h-11 xl:h-12 flex items-center justify-center gap-2 text-sm font-medium transition-all ${

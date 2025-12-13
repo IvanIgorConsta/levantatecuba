@@ -577,8 +577,7 @@ export default function ConfiguracionIA() {
               <option value="dall-e-3">DALL-E 3 (OpenAI)</option>
               <option value="dall-e-2">DALL-E 2 (OpenAI)</option>
               <option value="hailuo">Hailuo (MiniMax)</option>
-              <option value="stable-diffusion">Stable Diffusion</option>
-              <option value="midjourney">Midjourney</option>
+              <option value="gemini">Gemini (Google AI)</option>
             </select>
             <p className="text-xs text-zinc-500 mt-1 break-words">
               ⚠️ Genera imágenes con IA; puede tener costos por uso

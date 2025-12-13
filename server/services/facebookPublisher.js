@@ -1698,15 +1698,14 @@ async function publishNewsToFacebook(news, options = {}) {
   const resumen = extractSummary(titulo, news.bajada, news.contenido);
   const hashtags = buildHashtags(news.categoria, news.etiquetas);
   
-  // Formato NUEVO (CON INTRO ANTES DEL LINK):
+  // Formato NUEVO (SIN URL - enlace va en primer comentario):
   // [RESUMEN]
   // 
-  // 👉 Lee la noticia completa aquí:
-  // [URL]
+  // 👉 Para ver la noticia completa, revisa el primer comentario.
   // 
   // [HASHTAGS]
   
-  const introLink = '👉 Lee la noticia completa aquí:';
+  const introLink = '👉 Para ver la noticia completa, revisa el primer comentario.';
   const parts = [];
   
   if (resumen) {
@@ -1714,8 +1713,7 @@ async function publishNewsToFacebook(news, options = {}) {
   }
   
   parts.push(''); // Línea en blanco
-  parts.push(introLink); // Línea introductoria fija
-  parts.push(canonicalUrl);
+  parts.push(introLink); // Frase indicando que el link está en el comentario
   parts.push(''); // Línea en blanco
   parts.push(hashtags);
   

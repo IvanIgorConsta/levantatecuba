@@ -2008,6 +2008,12 @@ async function generateWithProvider(params) {
           draftId,
           _imageContext
         });
+      } else if (effectiveProvider === 'gemini') {
+        return await providerGemini({
+          prompt: finalPrompt,
+          draftId,
+          _imageContext
+        });
       } else {
         console.warn(`[ImageProvider:CustomPrompt] Proveedor ${effectiveProvider} no soportado en modo custom, usando fallback`);
         return {
@@ -2068,6 +2074,22 @@ async function generateWithProvider(params) {
         }
         
         return dallEResult;
+      } else if (effectiveProvider === 'gemini') {
+        const geminiResult = await providerGemini({
+          prompt,
+          title,
+          summary,
+          category,
+          draftId,
+          _imageContext
+        });
+        
+        if (geminiResult.ok) {
+          geminiResult.usedSource = false;
+          geminiResult.referenceUrl = null;
+        }
+        
+        return geminiResult;
       } else {
         // Proveedor desconocido, fallback a switch principal
         console.warn(`[ImageProvider] Proveedor ${effectiveProvider} no soportado en mode=synthesize_from_context, usando switch`);
@@ -2134,6 +2156,22 @@ async function generateWithProvider(params) {
         }
         
         return dallEResult;
+      } else if (effectiveProvider === 'gemini') {
+        const geminiResult = await providerGemini({
+          prompt,
+          title,
+          summary,
+          category,
+          draftId,
+          _imageContext
+        });
+        
+        if (geminiResult.ok) {
+          geminiResult.usedSource = false;
+          geminiResult.referenceUrl = null;
+        }
+        
+        return geminiResult;
       } else {
         // Proveedor desconocido, fallback a switch principal
         console.warn(`[ImageProvider] Proveedor ${effectiveProvider} no soportado en mode=synthesize_from_source, usando switch`);
@@ -2167,6 +2205,17 @@ async function generateWithProvider(params) {
     }
 
     switch (effectiveProvider) {
+      case 'gemini':
+        console.log('[ImageProvider] AIProviderSelected=Gemini (Google AI)');
+        return await providerGemini({
+          prompt,
+          title,
+          summary,
+          category,
+          draftId,
+          _imageContext
+        });
+      
       case 'hailuo':
         console.log('[ImageProvider] AIProviderSelected=Hailuo (MiniMax)');
         return await providerHailuo({
@@ -2252,11 +2301,100 @@ async function generateWithProvider(params) {
   }
 }
 
+/**
+ * Proveedor Gemini (Google AI Studio) - Imagen Generation
+ * Usa el modelo gemini-2.0-flash-exp con responseModalities: ["image", "text"]
+ * @param {Object} params - Parámetros de generación
+ * @returns {Promise<{ok: boolean, b64?: string, provider: string}>}
+ */
+async function providerGemini({ prompt, title, summary, category, draftId = null, _imageContext = null }) {
+  const logPrefix = '[ImageProvider:Gemini]';
+  console.log(`${logPrefix} 🎨 Generando imagen con Google Gemini`);
+  
+  const apiKey = process.env.GOOGLE_AI_API_KEY;
+  if (!apiKey) {
+    console.error(`${logPrefix} ❌ GOOGLE_AI_API_KEY no configurada`);
+    return { ok: false, error: 'GOOGLE_AI_API_KEY no configurada', provider: 'gemini' };
+  }
+  
+  try {
+    // Construir prompt para Gemini
+    let imagePrompt = prompt;
+    if (!imagePrompt && (title || summary)) {
+      imagePrompt = `Create a professional news editorial photograph for an article titled: "${title}". ${summary ? `Context: ${summary}` : ''}. Style: photojournalistic, high quality, no text or watermarks.`;
+    }
+    
+    if (!imagePrompt) {
+      return { ok: false, error: 'No se proporcionó prompt para generar imagen', provider: 'gemini' };
+    }
+    
+    // Agregar reglas anti-texto
+    imagePrompt += ' IMPORTANT: No text, no letters, no words, no watermarks, no logos in the image.';
+    
+    console.log(`${logPrefix} 📤 Prompt (${imagePrompt.length} chars): "${imagePrompt.substring(0, 200)}..."`);
+    
+    // Llamar a Gemini API con gemini-2.5-flash-image
+    const response = await axios.post(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp-image-generation:generateContent`,
+      {
+        contents: [{
+          parts: [{ text: imagePrompt }]
+        }],
+        generationConfig: {
+          responseModalities: ["TEXT", "IMAGE"]
+        }
+      },
+      {
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-goog-api-key': apiKey
+        },
+        timeout: 90000
+      }
+    );
+    
+    // Extraer imagen de la respuesta
+    const candidates = response.data?.candidates;
+    if (!candidates || candidates.length === 0) {
+      console.error(`${logPrefix} ❌ No hay candidates en la respuesta`);
+      console.error(`${logPrefix} Respuesta:`, JSON.stringify(response.data).substring(0, 500));
+      return { ok: false, error: 'Gemini no devolvió imagen', provider: 'gemini' };
+    }
+    
+    const parts = candidates[0]?.content?.parts || [];
+    const imagePart = parts.find(p => p.inlineData?.mimeType?.startsWith('image/'));
+    
+    if (!imagePart || !imagePart.inlineData?.data) {
+      console.error(`${logPrefix} ❌ No se encontró imagen en la respuesta`);
+      return { ok: false, error: 'Gemini no generó imagen', provider: 'gemini' };
+    }
+    
+    const b64 = imagePart.inlineData.data;
+    console.log(`${logPrefix} ✅ Imagen generada (${(b64.length / 1024).toFixed(1)}KB base64)`);
+    
+    return {
+      ok: true,
+      b64,
+      provider: 'gemini',
+      kind: 'ai'
+    };
+    
+  } catch (error) {
+    console.error(`${logPrefix} ❌ Error:`, error.response?.data || error.message);
+    return {
+      ok: false,
+      error: error.response?.data?.error?.message || error.message,
+      provider: 'gemini'
+    };
+  }
+}
+
 module.exports = {
   generateWithProvider,
   sanitizeImagePrompt,
   createNeutralPrompt,
   providerInternal,
   providerDallE,
-  providerHailuo
+  providerHailuo,
+  providerGemini
 };

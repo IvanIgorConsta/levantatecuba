@@ -29,6 +29,8 @@ export default function BorradoresIA() {
   const [changesDropdown, setChangesDropdown] = useState({});
   const [imageGenDropdown, setImageGenDropdown] = useState({});
   const [uploadingDraftId, setUploadingDraftId] = useState(null);
+  const [editModal, setEditModal] = useState(null); // { draft, titulo, bajada, contenidoHTML }
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
   const fileInputRef = useRef(null);
 
   // Función para notificar cambios en estadísticas (evento custom)
@@ -198,6 +200,14 @@ export default function BorradoresIA() {
     setIsGeneratingImage(prev => ({ ...prev, [draftId]: true }));
     toast.loading('Capturando imagen del sitio...', { id: `img-${draftId}` });
     
+    // 🐛 FIX: Limpiar imagen ANTES de la captura para forzar re-mount del componente
+    // Esto evita que el navegador muestre la imagen cacheada mientras carga la nueva
+    setDrafts(prev => prev.map(d => 
+      d._id === draftId 
+        ? { ...d, coverUrl: '', coverHash: '', generatedImages: { principal: '', opcional: '' } }
+        : d
+    ));
+    
     try {
       const res = await fetch(`/api/redactor-ia/drafts/${draftId}/capture-cover-from-source`, {
         method: 'POST',
@@ -229,10 +239,13 @@ export default function BorradoresIA() {
           draftFromServer: data.draft
         });
         
-        // Actualizar el borrador en el estado local
-        // 🐛 FIX: SIEMPRE usar timestamp para forzar cache-busting
-        const cacheBuster = `${Date.now()}_${newCoverHash?.slice(0, 8) || ''}`;
+        // 🐛 FIX: Usar timestamp único para forzar cache-busting agresivo
+        const cacheBuster = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
         console.log('[BorradoresIA:Capture] 🔄 Cache buster generado:', cacheBuster);
+        
+        // 🐛 FIX: Pequeño delay antes de actualizar para asegurar que el DOM se limpió
+        await new Promise(resolve => setTimeout(resolve, 50));
+        
         setDrafts(prev => prev.map(d => 
           d._id === draftId 
             ? { 
@@ -243,7 +256,6 @@ export default function BorradoresIA() {
                 imageKind: data.imageKind || data.draft?.imageKind || 'processed',
                 imageProvider: data.provider || data.draft?.imageProvider || 'internal',
                 coverImageUrl: data.draft?.coverImageUrl,
-                // 🐛 FIX: Limpiar generatedImages explícitamente para evitar mostrar imagen anterior
                 generatedImages: { principal: '', opcional: '' },
                 aiMetadata: {
                   ...d.aiMetadata,
@@ -256,13 +268,21 @@ export default function BorradoresIA() {
         
         // Actualizar modal si está abierto
         if (previewModalDraft?._id === draftId) {
-          setPreviewModalDraft(data.draft);
+          // 🐛 FIX: También actualizar el hash en el modal para forzar re-render
+          setPreviewModalDraft({
+            ...data.draft,
+            coverHash: cacheBuster
+          });
         }
       } else {
+        // 🐛 FIX: Restaurar estado previo en caso de error
+        fetchDrafts();
         console.error('[BorradoresIA:Capture] Error en respuesta:', data);
         toast.error(data.error || 'No se pudo capturar la imagen', { id: `img-${draftId}` });
       }
     } catch (error) {
+      // 🐛 FIX: Restaurar estado previo en caso de error
+      fetchDrafts();
       console.error('Error capturando imagen:', error);
       toast.error('Error de conexión al capturar imagen', { id: `img-${draftId}` });
     } finally {
@@ -762,6 +782,46 @@ export default function BorradoresIA() {
     }
   };
 
+  // Handler para guardar edición manual
+  const handleSaveManualEdit = async () => {
+    if (!editModal) return;
+    
+    setIsSavingEdit(true);
+    try {
+      const res = await fetch(`/api/redactor-ia/drafts/${editModal.draft._id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
+          titulo: editModal.titulo,
+          bajada: editModal.bajada,
+          contenidoHTML: editModal.contenidoHTML
+        })
+      });
+      
+      const data = await res.json();
+      
+      if (data.ok || res.ok) {
+        toast.success('Borrador actualizado');
+        // Actualizar en la lista
+        const updatedDraft = data.draft || { ...editModal.draft, titulo: editModal.titulo, bajada: editModal.bajada, contenidoHTML: editModal.contenidoHTML };
+        setDrafts(prev => prev.map(d => d._id === editModal.draft._id ? updatedDraft : d));
+        if (previewModalDraft?._id === editModal.draft._id) {
+          setPreviewModalDraft(updatedDraft);
+        }
+        setEditModal(null);
+      } else {
+        toast.error(data.error || 'Error al guardar');
+      }
+    } catch (error) {
+      toast.error('Error de conexión');
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
+
   const getStatusBadge = (status) => {
     const styles = {
       draft: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
@@ -806,7 +866,8 @@ export default function BorradoresIA() {
       'stable-diffusion': 'SD',
       'midjourney': 'MJ'
     };
-    return providerMap[provider] || provider || 'DALL·E';
+    // 🐛 FIX: No mostrar default incorrecto, mostrar "IA" genérico si no hay proveedor
+    return providerMap[provider] || provider || 'IA';
   };
 
 
@@ -1434,12 +1495,29 @@ export default function BorradoresIA() {
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     setChangesDropdown({});
+                                    setEditModal({
+                                      draft,
+                                      titulo: draft.titulo || '',
+                                      bajada: draft.bajada || '',
+                                      contenidoHTML: draft.contenidoHTML || ''
+                                    });
+                                  }}
+                                  className="w-full px-4 py-3 text-left text-sm hover:bg-zinc-800 transition-colors flex flex-col gap-1"
+                                >
+                                  <span className="font-medium text-white">Editar manualmente</span>
+                                  <span className="text-xs text-zinc-400">Modificar título, bajada y contenido</span>
+                                </button>
+                                <div className="border-t border-zinc-800" />
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setChangesDropdown({});
                                     handleReview(draft._id, 'changes_requested');
                                   }}
                                   className="w-full px-4 py-3 text-left text-sm hover:bg-zinc-800 transition-colors flex flex-col gap-1"
                                 >
-                                  <span className="font-medium text-white">Solicitar cambios al contenido</span>
-                                  <span className="text-xs text-zinc-400">Revisar texto con IA</span>
+                                  <span className="font-medium text-white">Solicitar cambios con IA</span>
+                                  <span className="text-xs text-zinc-400">Revisar texto con inteligencia artificial</span>
                                 </button>
                                 <div className="border-t border-zinc-800" />
                                 <button
@@ -1450,8 +1528,8 @@ export default function BorradoresIA() {
                                   }}
                                   className="w-full px-4 py-3 text-left text-sm hover:bg-zinc-800 transition-colors flex flex-col gap-1"
                                 >
-                                  <span className="font-medium text-white">Generar nueva portada IA</span>
-                                  <span className="text-xs text-zinc-400">Con prompt manual</span>
+                                  <span className="font-medium text-white">Generar nueva portada</span>
+                                  <span className="text-xs text-zinc-400">Crear imagen con IA usando prompt</span>
                                 </button>
                               </div>
                             )}
@@ -1640,12 +1718,29 @@ export default function BorradoresIA() {
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     setChangesDropdown({});
+                                    setEditModal({
+                                      draft,
+                                      titulo: draft.titulo || '',
+                                      bajada: draft.bajada || '',
+                                      contenidoHTML: draft.contenidoHTML || ''
+                                    });
+                                  }}
+                                  className="w-full px-4 py-3 text-left text-sm hover:bg-zinc-800 transition-colors flex flex-col gap-1"
+                                >
+                                  <span className="font-medium text-white">Editar manualmente</span>
+                                  <span className="text-xs text-zinc-400">Modificar título, bajada y contenido</span>
+                                </button>
+                                <div className="border-t border-zinc-800" />
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setChangesDropdown({});
                                     handleReview(draft._id, 'changes_requested');
                                   }}
                                   className="w-full px-4 py-3 text-left text-sm hover:bg-zinc-800 transition-colors flex flex-col gap-1"
                                 >
-                                  <span className="font-medium text-white">Solicitar cambios al contenido</span>
-                                  <span className="text-xs text-zinc-400">Revisar texto con IA</span>
+                                  <span className="font-medium text-white">Solicitar cambios con IA</span>
+                                  <span className="text-xs text-zinc-400">Revisar texto con inteligencia artificial</span>
                                 </button>
                                 <div className="border-t border-zinc-800" />
                                 <button
@@ -1656,8 +1751,8 @@ export default function BorradoresIA() {
                                   }}
                                   className="w-full px-4 py-3 text-left text-sm hover:bg-zinc-800 transition-colors flex flex-col gap-1"
                                 >
-                                  <span className="font-medium text-white">Generar nueva portada IA</span>
-                                  <span className="text-xs text-zinc-400">Con prompt manual</span>
+                                  <span className="font-medium text-white">Generar nueva portada</span>
+                                  <span className="text-xs text-zinc-400">Crear imagen con IA usando prompt</span>
                                 </button>
                               </div>
                             )}
@@ -1860,6 +1955,91 @@ export default function BorradoresIA() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de edición manual */}
+      {editModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-zinc-900 border border-zinc-700 rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="p-6 border-b border-zinc-800">
+              <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                <Edit3 size={24} className="text-amber-400" />
+                Editar borrador manualmente
+              </h3>
+              <p className="text-sm text-zinc-400 mt-1">Modifica el título, bajada y contenido del borrador</p>
+            </div>
+            
+            <div className="p-6 overflow-y-auto flex-1 space-y-4">
+              {/* Título */}
+              <div>
+                <label className="block text-sm font-medium text-zinc-300 mb-2">Título</label>
+                <input
+                  type="text"
+                  value={editModal.titulo}
+                  onChange={(e) => setEditModal({ ...editModal, titulo: e.target.value })}
+                  className="w-full h-11 px-4 bg-zinc-800 border border-zinc-700 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  placeholder="Título del borrador"
+                />
+              </div>
+              
+              {/* Bajada */}
+              <div>
+                <label className="block text-sm font-medium text-zinc-300 mb-2">Bajada / Entradilla</label>
+                <textarea
+                  value={editModal.bajada}
+                  onChange={(e) => setEditModal({ ...editModal, bajada: e.target.value })}
+                  rows={3}
+                  className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none"
+                  placeholder="Resumen breve del artículo"
+                />
+              </div>
+              
+              {/* Contenido HTML */}
+              <div>
+                <label className="block text-sm font-medium text-zinc-300 mb-2">
+                  Contenido (HTML)
+                  <span className="text-xs text-zinc-500 ml-2">Puedes usar etiquetas HTML como &lt;p&gt;, &lt;h2&gt;, &lt;strong&gt;, etc.</span>
+                </label>
+                <textarea
+                  value={editModal.contenidoHTML}
+                  onChange={(e) => setEditModal({ ...editModal, contenidoHTML: e.target.value })}
+                  rows={15}
+                  className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white text-sm font-mono focus:outline-none focus:ring-2 focus:ring-amber-500 resize-y"
+                  placeholder="<p>Contenido del artículo...</p>"
+                />
+              </div>
+            </div>
+            
+            <div className="p-6 border-t border-zinc-800 flex gap-3 justify-end">
+              <button
+                type="button"
+                onClick={() => setEditModal(null)}
+                disabled={isSavingEdit}
+                className="h-11 px-6 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 rounded-xl text-sm font-medium transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveManualEdit}
+                disabled={isSavingEdit || !editModal.titulo.trim()}
+                className="h-11 px-6 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl text-sm font-medium transition-colors flex items-center gap-2"
+              >
+                {isSavingEdit ? (
+                  <>
+                    <span className="animate-spin">⏳</span>
+                    Guardando...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle size={16} />
+                    Guardar cambios
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}

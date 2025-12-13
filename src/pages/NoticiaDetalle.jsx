@@ -17,6 +17,7 @@ import {
   buildFacebookShareUrl,
   copyToClipboard 
 } from "../utils/shareUtils";
+import { AdInArticle, AdDisplay, AdSidebar } from "../components/AdSense";
 
 export default function NoticiaDetalle() {
   const { slug } = useParams();
@@ -79,7 +80,7 @@ export default function NoticiaDetalle() {
         }
         
         const contenidoSanitizado = DOMPurify.sanitize(data.contenido, {
-          ALLOWED_TAGS: ["p","strong","em","u","a","br","ul","ol","li","blockquote","h1","h2","h3","figure","figcaption","img","span"],
+          ALLOWED_TAGS: ["p","strong","em","u","a","br","ul","ol","li","blockquote","h1","h2","h3","figure","figcaption","img","span","table","thead","tbody","tr","th","td"],
           ALLOWED_ATTR: ["href","target","rel","src","alt","title","class","style","loading"],
           RETURN_DOM: true,
           WHOLE_DOCUMENT: false
@@ -119,7 +120,7 @@ export default function NoticiaDetalle() {
         });
 
         // Seleccionar bloques (no solo párrafos)
-        const blocks = Array.from(cont.querySelectorAll("h2,h3,p,ul,ol,blockquote"));
+        const blocks = Array.from(cont.querySelectorAll("h2,h3,p,ul,ol,blockquote,table"));
 
         // Helper para extraer texto plano de cualquier bloque (incluyendo listas)
         const plain = (node) => {
@@ -162,9 +163,11 @@ export default function NoticiaDetalle() {
         });
 
         // Inserción “natural” de imagen opcional entre 45–65% del total
+        // + Inserción de anuncio in-article después del segundo párrafo
         const totalChars = sections.reduce((a, s) => a + s.charSum, 0) || 1;
         let contenidoConImagen = "";
         let injectedImage = false;
+        let injectedAd = false;
         let acc = 0;
 
         sections.forEach((sec, secIdx) => {
@@ -187,6 +190,12 @@ export default function NoticiaDetalle() {
           }
           
           contenidoConImagen += sec.html;
+          
+          // Insertar placeholder de anuncio después de la primera sección (si hay más de 1)
+          if (!injectedAd && secIdx === 0 && sections.length > 1) {
+            contenidoConImagen += '<!-- AD_PLACEHOLDER -->';
+            injectedAd = true;
+          }
           
           // Insertar imagen DESPUÉS de la sección si no termina con lista
           if (!injectedImage && pct >= 0.45 && pct <= 0.65 && data.imagenOpcional && !endsWithList) {
@@ -510,7 +519,9 @@ export default function NoticiaDetalle() {
           title={noticia?.categoria || 'Noticia'}
         />
 
-        <main className="max-w-3xl mx-auto px-4 md:px-6 space-y-6">
+        {/* Layout con sidebar para desktop */}
+        <div className="max-w-4xl mx-auto px-4 md:px-6 lg:max-w-6xl lg:grid lg:grid-cols-[1fr,300px] lg:gap-8">
+        <main className="space-y-6">
           {noticia._cover && (
             <div 
               key={noticia._coverHash || noticia._id} 
@@ -647,8 +658,10 @@ export default function NoticiaDetalle() {
               prose-figure:my-10
               break-words"
           >
-            <div 
-              className="space-y-4 leading-relaxed
+            {(() => {
+              // Dividir contenido por placeholder de anuncio
+              const contentParts = noticia.contenido.split('<!-- AD_PLACEHOLDER -->');
+              const contentClass = `space-y-4 leading-relaxed
                 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6
                 [&_li]:my-1
                 [&_h2]:mt-8 [&_h2]:mb-3 [&_h2]:text-2xl [&_h2]:font-semibold [&_h2]:text-zinc-100
@@ -656,15 +669,37 @@ export default function NoticiaDetalle() {
                 [&_h3]:border-l-4 [&_h3]:border-blue-500 [&_h3]:pl-3
                 [&_blockquote]:border-l-4 [&_blockquote]:border-zinc-700 [&_blockquote]:pl-4 [&_blockquote]:italic
                 [&_a]:text-blue-400 [&_a]:no-underline hover:[&_a]:underline
-                [&_a[target='_blank']]:after:content-['_↗'] [&_a[target='_blank']]:after:text-xs"
-              dangerouslySetInnerHTML={{ __html: noticia.contenido }} 
-            />
+                [&_a[target='_blank']]:after:content-['_↗'] [&_a[target='_blank']]:after:text-xs
+                [&_table]:w-full [&_table]:my-6 [&_table]:border-collapse [&_table]:text-sm
+                [&_table]:bg-zinc-900/50 [&_table]:rounded-lg [&_table]:overflow-hidden
+                [&_thead]:bg-zinc-800 [&_thead]:text-zinc-200
+                [&_th]:px-4 [&_th]:py-3 [&_th]:text-left [&_th]:font-semibold [&_th]:border-b [&_th]:border-zinc-700
+                [&_td]:px-4 [&_td]:py-3 [&_td]:border-b [&_td]:border-zinc-800
+                [&_tr]:hover:bg-zinc-800/50
+                [&_tbody_tr:last-child_td]:border-b-0`;
+              
+              if (contentParts.length > 1) {
+                return (
+                  <>
+                    <div className={contentClass} dangerouslySetInnerHTML={{ __html: contentParts[0] }} />
+                    {/* Anuncio 1: In-article después del primer bloque */}
+                    <AdInArticle isReady={!!noticia?.contenido} />
+                    <div className={contentClass} dangerouslySetInnerHTML={{ __html: contentParts.slice(1).join('') }} />
+                  </>
+                );
+              }
+              return <div className={contentClass} dangerouslySetInnerHTML={{ __html: noticia.contenido }} />;
+            })()}
           </article>
 
           {/* CTA de tienda: Apoya la causa */}
           <ShopCTA variant="compact" />
 
           {renderCompartir()}
+          
+          {/* Anuncio 2: Final del artículo, antes de noticias relacionadas */}
+          <AdDisplay className="my-8" isReady={!!noticia?.contenido} />
+          
           <div className="my-10 h-px bg-zinc-800/60" />
           
           {renderRelacionadas()}
@@ -683,6 +718,10 @@ export default function NoticiaDetalle() {
             />
           </section>
         </main>
+        
+        {/* Anuncio 3: Sidebar solo desktop */}
+        <AdSidebar className="mt-6" isReady={!!noticia?.contenido} />
+        </div>
       </div>
       
       {/* Debug banner solo en desarrollo */}

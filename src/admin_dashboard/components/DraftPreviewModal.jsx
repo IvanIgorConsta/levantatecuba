@@ -31,7 +31,8 @@ export default function DraftPreviewModal({ draft, onClose, onApprove, onResetTo
       'stable-diffusion': 'SD',
       'midjourney': 'MJ'
     };
-    return providerMap[provider] || provider || 'DALL·E';
+    // 🐛 FIX: No mostrar default incorrecto, mostrar "IA" genérico si no hay proveedor
+    return providerMap[provider] || provider || 'IA';
   };
   
   const handleBackdropClick = (e) => {

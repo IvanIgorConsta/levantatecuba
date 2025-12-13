@@ -951,14 +951,35 @@ router.post('/drafts/:id/upload-cover', requireEditor, draftImageUpload.single('
     console.log(`[API:Upload] Procesando imagen subida para draft ${draft._id}`);
     console.log(`[API:Upload] Archivo: ${req.file.path} (${req.file.size} bytes)`);
 
-    // Procesar la imagen con el mismo pipeline que usamos para otras imágenes
-    const result = await processNewsImage(req.file.path, {
-      newsId: draft._id.toString(),
-      outputDir: path.join(process.cwd(), 'public', 'media', 'drafts', draft._id.toString()),
-      generateFormats: ['webp', 'avif'],
-      maxWidth: 1200,
-      quality: 85
-    });
+    // Procesar imagen directamente con sharp (archivo local, no URL)
+    const sharp = require('sharp');
+    const crypto = require('crypto');
+    
+    // Crear directorio de destino
+    const outputDir = path.join(process.cwd(), 'public', 'media', 'drafts', draft._id.toString());
+    if (!fs.existsSync(outputDir)) {
+      fs.mkdirSync(outputDir, { recursive: true });
+    }
+    
+    // Leer archivo subido
+    const imageBuffer = fs.readFileSync(req.file.path);
+    
+    // Generar hash para cache busting
+    const hash = crypto.createHash('sha256').update(imageBuffer).digest('hex').substring(0, 16);
+    
+    // Procesar y guardar en WebP
+    await sharp(imageBuffer)
+      .resize(1200, null, { withoutEnlargement: true })
+      .webp({ quality: 85 })
+      .toFile(path.join(outputDir, 'cover.webp'));
+    
+    // Procesar y guardar en JPG como fallback
+    await sharp(imageBuffer)
+      .resize(1200, null, { withoutEnlargement: true })
+      .jpeg({ quality: 85 })
+      .toFile(path.join(outputDir, 'cover.jpg'));
+    
+    console.log(`[API:Upload] ✅ Imagen procesada en ${outputDir}`);
 
     // Eliminar archivo temporal original
     if (fs.existsSync(req.file.path)) {
@@ -966,15 +987,13 @@ router.post('/drafts/:id/upload-cover', requireEditor, draftImageUpload.single('
     }
 
     // Construir URL pública
-    const coverUrl = `/media/drafts/${draft._id}/${result.filename || 'cover.webp'}`;
-    const coverFallbackUrl = result.fallbackFilename 
-      ? `/media/drafts/${draft._id}/${result.fallbackFilename}` 
-      : '';
+    const coverUrl = `/media/drafts/${draft._id}/cover.webp`;
+    const coverFallbackUrl = `/media/drafts/${draft._id}/cover.jpg`;
 
     // Actualizar el borrador con la nueva portada
     draft.coverUrl = coverUrl;
     draft.coverFallbackUrl = coverFallbackUrl;
-    draft.coverHash = result.hash || '';
+    draft.coverHash = hash;
     draft.imageKind = 'uploaded';
     
     // 🐛 FIX: Limpiar generatedImages para evitar que muestre imagen anterior
@@ -1070,7 +1089,8 @@ router.put('/drafts/:id/review', requireEditor, async (req, res) => {
     if (status === 'approved') {
       try {
         // 1. Asegurar que la portada esté persistida
-        let coverUrl = draft.coverImageUrl || '';
+        // 🐛 FIX: Priorizar coverUrl (imagen capturada/procesada) sobre coverImageUrl y generatedImages
+        let coverUrl = draft.coverUrl || draft.coverImageUrl || '';
         
         // Si no hay coverUrl pero sí imagen generada, intentar persistir
         if (!coverUrl && draft.generatedImages?.principal) {
@@ -1316,6 +1336,48 @@ router.put('/drafts/:id/status', requireEditor, async (req, res) => {
   } catch (error) {
     console.error('[API] Error actualizando estado:', error);
     res.status(500).json({ ok: false, error: error.message || 'Error al actualizar estado' });
+  }
+});
+
+/**
+ * PUT /api/redactor-ia/drafts/:id
+ * Actualiza un borrador (título, bajada, contenido)
+ * Body: { titulo?, bajada?, contenidoHTML? }
+ */
+router.put('/drafts/:id', requireEditor, async (req, res) => {
+  try {
+    const { titulo, bajada, contenidoHTML } = req.body;
+    
+    const draft = await AiDraft.findById(req.params.id);
+    if (!draft) {
+      return res.status(404).json({ ok: false, error: 'Borrador no encontrado' });
+    }
+    
+    // Actualizar campos si se proporcionan
+    if (titulo !== undefined) draft.titulo = titulo;
+    if (bajada !== undefined) draft.bajada = bajada;
+    if (contenidoHTML !== undefined) draft.contenidoHTML = contenidoHTML;
+    
+    // Marcar como editado manualmente
+    draft.aiMetadata = draft.aiMetadata || {};
+    draft.aiMetadata.manuallyEdited = true;
+    draft.aiMetadata.lastEditedAt = new Date();
+    draft.aiMetadata.lastEditedBy = req.user?._id || req.user?.id;
+    
+    await draft.save();
+    
+    const populated = await AiDraft.findById(draft._id)
+      .populate('generatedBy', 'nombre email role')
+      .populate('reviewedBy', 'nombre email role');
+    
+    res.json({
+      ok: true,
+      message: 'Borrador actualizado',
+      draft: populated
+    });
+  } catch (error) {
+    console.error('[API] Error actualizando borrador:', error);
+    res.status(500).json({ ok: false, error: error.message || 'Error al actualizar borrador' });
   }
 });
 

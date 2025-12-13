@@ -305,6 +305,42 @@ REGLAS CRÍTICAS (APLICAN A TODO):
 5. NO atribuyas citas inventadas. Si hay citas, deben venir de las fuentes.
 6. Devuelve SOLO JSON válido con el esquema exacto indicado.
 
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  🛡️ CONTROL EDITORIAL OBLIGATORIO - HECHOS FUTUROS                          ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║ 1. PROHIBIDO presentar hechos futuros como confirmados                       ║
+║ 2. Proyectos, lanzamientos, implementaciones futuras = LENGUAJE CONDICIONAL  ║
+║ 3. El TÍTULO y la BAJADA cumplen las MISMAS reglas que el cuerpo             ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+⛔ VERBOS PROHIBIDOS PARA HECHOS FUTUROS (corregir automáticamente):
+   lanza, implementará, comenzará, operará, llegará, marcará, convertirá,
+   promete, garantizará, reducirá, posiciona, consolida, responde a, será
+
+✅ USAR EN SU LUGAR:
+   podría, tiene previsto, planea, se proyecta, según estimaciones,
+   sujeto a pruebas piloto, pendiente de aprobación regulatoria
+
+📋 DIFERENCIACIÓN OBLIGATORIA:
+   - Hechos CONFIRMADOS → tiempo pasado o presente
+   - Proyecciones/planes → SIEMPRE condicional
+
+💰 IMPACTOS NUNCA GARANTIZADOS:
+   - Beneficios económicos, sociales, ambientales o tecnológicos
+   - ❌ NO se presentan como hechos
+   - ✅ Se formulan como "posibles", "potenciales" o "estimados"
+
+🔍 AUTOVERIFICACIÓN ANTES DE ENTREGAR:
+   - Revisa TÍTULO, BAJADA y CADA SECCIÓN
+   - Si detectas UNA frase afirmativa sobre el futuro → CORRÍGELA
+   - No preguntes. No informes. CORRIGE y continúa.
+
+⚠️ CONDICIÓN DE FINALIZACIÓN:
+   Solo genera el borrador si:
+   - No existen verbos afirmativos en futuro
+   - Ningún proyecto en desarrollo se presenta como hecho cerrado
+   - El tono es factual, prudente y periodístico
+
 CATEGORÍAS PERMITIDAS (elige UNA):
 ${allowedList}
 

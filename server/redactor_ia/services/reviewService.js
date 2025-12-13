@@ -54,30 +54,83 @@ async function callLLM({ model, system, user, temperature = 0.3, timeoutMs = 300
  * Construye el prompt para revisar un borrador
  */
 function buildRevisionPrompt(draft, notes) {
-  const system = `Eres un editor profesional especializado en periodismo para medios digitales. Tu misión es mejorar la claridad, precisión y fluidez de borradores noticiosos sin inventar información.
+  const system = `Eres un EDITOR JEFE profesional. Tu trabajo tiene DOS FASES OBLIGATORIAS:
 
-REGLAS ESTRICTAS:
-1. NO inventes hechos, fechas ni datos que no estén en el original
-2. Mantén el tono neutral y objetivo (salvo si es opinión marcada)
-3. Usa español neutro latinoamericano (evita regionalismos)
-4. Respeta la estructura HTML existente (etiquetas <p>, <h2>, <strong>, etc.)
-5. Mejora la redacción: claridad, coherencia, ritmo de lectura
-6. Corrige errores ortográficos y gramaticales
-7. Si el usuario pide cambios específicos, aplícalos con precisión
+═══════════════════════════════════════════════════════════════════════════════
+FASE 1: APLICA LAS INSTRUCCIONES DEL EDITOR
+═══════════════════════════════════════════════════════════════════════════════
+- Realiza los cambios que solicita el editor
+- Mejora claridad, coherencia y ritmo de lectura
+- Corrige errores ortográficos y gramaticales
 
-OUTPUT: Devuelve SOLO el contenido HTML revisado completo. NO agregues introducciones como "Aquí está el texto revisado" ni explicaciones adicionales.`;
+═══════════════════════════════════════════════════════════════════════════════
+FASE 2: VERIFICACIÓN COMPLETA DEL DOCUMENTO FINAL (OBLIGATORIA)
+═══════════════════════════════════════════════════════════════════════════════
 
-  const user = `Título: ${draft.titulo || 'Sin título'}
-Categoría: ${draft.categoria || 'General'}
-Modo: ${draft.mode === 'opinion' ? 'Opinión' : 'Factual'}
+⚠️ DESPUÉS de aplicar los cambios, DEBES releer TODO el documento completo
+   (TÍTULO, BAJADA y CUERPO) y corregir CUALQUIER frase que viole estas reglas:
 
-${draft.bajada ? `Bajada:\n${draft.bajada}\n\n` : ''}Contenido a revisar:
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  🔴 VERBOS/EXPRESIONES PROHIBIDAS PARA HECHOS FUTUROS (BUSCAR Y ELIMINAR)   ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║ lanza, implementará, se realizará, comenzará, operará, llegará, marcará,    ║
+║ convertirá, promete, garantizará, reducirá, posiciona, consolida, será,     ║
+║ responde a, se espera que, representa, ofrece, mejorará, transformará,      ║
+║ revolucionará, permitirá, logrará, asegurará, proporcionará                 ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+✅ REEMPLAZAR SIEMPRE POR:
+   podría, tiene previsto, planea, se proyecta, según estimaciones,
+   estaría sujeto a, pendiente de aprobación, potencialmente, se estima que
+
+📋 CHECKLIST DE VERIFICACIÓN FINAL:
+   □ ¿El TÍTULO contiene verbos afirmativos sobre el futuro? → CORREGIR
+   □ ¿La BAJADA afirma hechos no confirmados? → CORREGIR  
+   □ ¿El CUERPO presenta proyectos futuros como hechos? → CORREGIR
+   □ ¿Se atribuyen motivaciones sin cita? → REFORMULAR
+   □ ¿Los impactos se presentan como garantizados? → Cambiar a "potenciales"
+
+⛔ CONDICIÓN DE ENTREGA:
+   Si el texto final contiene UNA SOLA frase afirmativa sobre el futuro,
+   NO LO ENTREGUES. Corrígelo primero.
+
+═══════════════════════════════════════════════════════════════════════════════
+FORMATO DE RESPUESTA OBLIGATORIO (JSON)
+═══════════════════════════════════════════════════════════════════════════════
+DEBES devolver un JSON válido con TODOS estos campos revisados:
+
+{
+  "titulo": "El título revisado y corregido",
+  "bajada": "La bajada/entradilla revisada y corregida",
+  "contenidoHTML": "<p>El contenido HTML completo revisado...</p>"
+}
+
+⚠️ NO devuelvas texto plano. SOLO JSON válido con los 3 campos.
+⚠️ El contenidoHTML debe incluir TODO el cuerpo con etiquetas HTML.`;
+
+  const user = `DOCUMENTO A REVISAR:
+
+TÍTULO ACTUAL:
+${draft.titulo || 'Sin título'}
+
+BAJADA ACTUAL:
+${draft.bajada || 'Sin bajada'}
+
+CONTENIDO ACTUAL:
 ${draft.contenidoHTML || draft.contenidoMarkdown || ''}
 
+═══════════════════════════════════════════════════════════════════════════════
 NOTAS DEL EDITOR (aplica estos cambios):
 ${notes || 'Mejorar claridad general y corregir errores'}
+═══════════════════════════════════════════════════════════════════════════════
 
-Devuelve el contenido HTML revisado completo (sin explicaciones adicionales):`;
+PROCESO OBLIGATORIO:
+1. PRIMERO: Aplica los cambios que solicita el editor a TODO el documento
+2. SEGUNDO: Relee TÍTULO, BAJADA y CONTENIDO de principio a fin
+3. TERCERO: Busca y corrige CUALQUIER frase con verbos prohibidos en TODOS los campos
+4. CUARTO: Verifica que el texto esté 100% limpio antes de entregar
+
+Devuelve SOLO el JSON con los 3 campos revisados (titulo, bajada, contenidoHTML):`;
 
   return { system, user };
 }
@@ -115,11 +168,11 @@ async function generateRevision({ draftId, notes, model, userId }) {
     const { system, user } = buildRevisionPrompt(draft, notes);
 
     // 5. Llamar a LLM con retry
-    let proposedContent;
+    let rawResponse;
     try {
-      proposedContent = await retryLLMCall(
-        () => callLLM({ model, system, user, temperature: 0.3, timeoutMs: 45000 }),
-        45000,
+      rawResponse = await retryLLMCall(
+        () => callLLM({ model, system, user, temperature: 0.3, timeoutMs: 60000 }),
+        60000,
         2
       );
     } catch (error) {
@@ -127,12 +180,41 @@ async function generateRevision({ draftId, notes, model, userId }) {
       throw new Error(`Error al generar revisión: ${error.message}`);
     }
 
-    // 6. Validar que la propuesta no esté vacía
+    // 6. Parsear JSON de la respuesta
+    let proposedData;
+    try {
+      // Limpiar respuesta de posibles bloques de código markdown
+      let cleanResponse = rawResponse.trim();
+      if (cleanResponse.startsWith('```json')) {
+        cleanResponse = cleanResponse.slice(7);
+      }
+      if (cleanResponse.startsWith('```')) {
+        cleanResponse = cleanResponse.slice(3);
+      }
+      if (cleanResponse.endsWith('```')) {
+        cleanResponse = cleanResponse.slice(0, -3);
+      }
+      cleanResponse = cleanResponse.trim();
+      
+      proposedData = JSON.parse(cleanResponse);
+    } catch (parseError) {
+      console.error('[Review] Error parseando JSON:', parseError.message);
+      console.log('[Review] Respuesta raw:', rawResponse.substring(0, 500));
+      // Fallback: si no es JSON, usar como contenido HTML directo
+      proposedData = {
+        titulo: draft.titulo,
+        bajada: draft.bajada,
+        contenidoHTML: rawResponse
+      };
+    }
+
+    // 7. Validar que la propuesta tenga contenido
+    const proposedContent = proposedData.contenidoHTML || rawResponse;
     if (!proposedContent || proposedContent.trim().length < 100) {
       throw new Error('La IA devolvió una respuesta muy corta o vacía');
     }
 
-    // 7. Generar diff
+    // 8. Generar diff del contenido
     const diff = createTwoFilesPatch(
       'original',
       'propuesta',
@@ -143,10 +225,14 @@ async function generateRevision({ draftId, notes, model, userId }) {
       { context: 3 }
     );
 
-    // 8. Verificar si hay cambios reales
-    const hasChanges = originalContent.trim() !== proposedContent.trim();
+    // 9. Verificar si hay cambios reales (en cualquier campo)
+    const hasChanges = 
+      originalContent.trim() !== proposedContent.trim() ||
+      (proposedData.titulo && draft.titulo !== proposedData.titulo) ||
+      (proposedData.bajada && draft.bajada !== proposedData.bajada);
+      
     if (!hasChanges) {
-      console.log('[Review] nochange id=${draftId} (contenido idéntico)');
+      console.log(`[Review] nochange id=${draftId} (contenido idéntico)`);
       return {
         ok: false,
         status: 'nochange',
@@ -154,12 +240,14 @@ async function generateRevision({ draftId, notes, model, userId }) {
       };
     }
 
-    // 9. Guardar en el borrador
+    // 10. Guardar en el borrador (con todos los campos)
     draft.review = {
       requestedNotes: notes || '',
       requestedBy: userId || null,
       requestedAt: new Date(),
       proposed: proposedContent,
+      proposedTitulo: proposedData.titulo || draft.titulo,
+      proposedBajada: proposedData.bajada || draft.bajada,
       diff,
       status: 'ready',
       model,
@@ -262,9 +350,17 @@ async function applyRevision({ draftId, userId }) {
       notes: draft.review.requestedNotes
     });
 
-    // Aplicar cambios
+    // Aplicar cambios - TODOS los campos (título, bajada, contenido)
+    if (draft.review.proposedTitulo) {
+      draft.titulo = draft.review.proposedTitulo;
+    }
+    if (draft.review.proposedBajada) {
+      draft.bajada = draft.review.proposedBajada;
+    }
     draft.contenidoHTML = draft.review.proposed;
     draft.contenidoMarkdown = ''; // Limpiar markdown si existe
+    
+    console.log(`[Review] Aplicando cambios: titulo=${!!draft.review.proposedTitulo}, bajada=${!!draft.review.proposedBajada}, contenido=true`);
 
     // Limpiar review (o mantener en history)
     draft.review.status = 'applied';

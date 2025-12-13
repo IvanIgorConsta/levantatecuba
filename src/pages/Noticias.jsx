@@ -45,8 +45,9 @@ export default function Noticias() {
 
   const esReciente = (createdAt) => {
     if (!createdAt) return false;
-    const diffHours = (Date.now() - new Date(createdAt)) / (1000 * 60 * 60);
-    return diffHours <= 24;
+    const ahora = new Date();
+    const inicioDelDia = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate());
+    return new Date(createdAt) >= inicioDelDia;
   };
 
   useEffect(() => {
@@ -197,15 +198,22 @@ export default function Noticias() {
 
   const agruparNoticiasPorFecha = (arr) => {
     const ahora = new Date();
+    // Inicio del día actual (medianoche 00:00:00)
+    const inicioDelDia = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate());
+    // Inicio de la semana (7 días atrás a medianoche)
+    const inicioSemana = new Date(inicioDelDia);
+    inicioSemana.setDate(inicioSemana.getDate() - 7);
+    // Inicio del mes (30 días atrás a medianoche)
+    const inicioMes = new Date(inicioDelDia);
+    inicioMes.setDate(inicioMes.getDate() - 30);
+    
     const out = { Hoy: [], "Esta semana": [], "Este mes": [], Anteriores: [] };
     arr.forEach((n) => {
       const f = new Date(n.createdAt);
-      const diffHoras = (ahora - f) / (1000 * 60 * 60);
-      const diffDias = (ahora - f) / (1000 * 60 * 60 * 24);
-      if (diffHoras <= 24) out["Hoy"].push(n);
-      else if (diffDias <= 7) out["Esta semana"].push(n);
-      else if (diffDias <= 30) out["Este mes"].push(n);
-      else out["Anteriores"].push(n); // Noticias > 30 días
+      if (f >= inicioDelDia) out["Hoy"].push(n);
+      else if (f >= inicioSemana) out["Esta semana"].push(n);
+      else if (f >= inicioMes) out["Este mes"].push(n);
+      else out["Anteriores"].push(n);
     });
     return out;
   };
