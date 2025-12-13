@@ -18,6 +18,7 @@ import {
 import { Newspaper, ChevronRight, ArrowLeft } from "lucide-react";
 import BackLink from "../components/BackLink";
 import Carousel from "../components/Carousel";
+import LanguageSwitch from "../components/LanguageSwitch";
 
 export default function Noticias() {
   const [noticias, setNoticias] = useState([]);
@@ -537,7 +538,10 @@ export default function Noticias() {
   }
 `}</style>
 
-      <div className="min-h-screen bg-transparent text-white">
+      <div className="min-h-screen bg-transparent text-white relative">
+        {/* Switch de idioma ES/EN */}
+        <LanguageSwitch className="fixed top-[calc(var(--nav-h,64px)+60px)] right-4 sm:right-6 z-40" />
+        
         {/* Header moderno */}
         <header className="max-w-6xl mx-auto px-4 md:px-6 pt-[calc(var(--nav-h,64px)+12px)] mb-4 md:mb-6">
           {/* Botón Volver (solo móvil) */}

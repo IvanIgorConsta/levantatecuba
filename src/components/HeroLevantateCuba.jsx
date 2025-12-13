@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { FaFacebook } from "react-icons/fa";
+import LanguageSwitch from "./LanguageSwitch";
 
 export default function HeroLevantateCuba() {
   return (
@@ -7,6 +8,9 @@ export default function HeroLevantateCuba() {
       className="relative w-full flex flex-col items-center justify-center min-h-[60vh] bg-black text-center overflow-hidden"
       aria-label="Sección principal LevántateCuba"
     >
+      {/* Switch de idioma ES/EN */}
+      <LanguageSwitch className="absolute top-4 right-4 sm:top-6 sm:right-6 z-30" />
+
       {/* Glow sutil detrás del logo */}
       <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
         <div className="w-[36rem] h-[36rem] rounded-full bg-red-600/10 blur-3xl" />
@@ -48,13 +52,14 @@ export default function HeroLevantateCuba() {
           Conoce cómo ayudamos
         </Link>
       </div>
+      {/* Icono Facebook debajo del CTA */}
       <a
         href="https://www.facebook.com/profile.php?id=61580079061652"
         target="_blank"
         rel="noopener noreferrer"
         aria-label="Visitar página de Facebook"
         title="Facebook"
-        className="group absolute bottom-4 right-4 sm:bottom-6 sm:right-6 z-20 inline-flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-white/5 backdrop-blur border border-white/10 text-white/80 hover:text-white hover:bg-white/10 hover:border-white/20 ring-0 hover:ring-2 hover:ring-white/20 transition-all duration-300"
+        className="relative mt-8 z-20 inline-flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-white/5 backdrop-blur border border-white/10 text-white/80 hover:text-white hover:bg-white/10 hover:border-white/20 ring-0 hover:ring-2 hover:ring-white/20 transition-all duration-300"
       >
         <FaFacebook size={20} className="opacity-90 group-hover:opacity-100 transition-opacity" aria-hidden="true" />
       </a>

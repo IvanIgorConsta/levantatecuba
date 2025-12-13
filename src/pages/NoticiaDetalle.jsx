@@ -7,6 +7,7 @@ import { FaFacebook, FaTelegram, FaTwitter, FaWhatsapp } from "react-icons/fa";
 import { MessageSquareText, Newspaper, Clock, FileText } from "lucide-react";
 import PageHeader from "../components/PageHeader";
 import ShopCTA from "../components/ShopCTA";
+import LanguageSwitch from "../components/LanguageSwitch";
 import DebugShopCTA from "../components/DebugShopCTA";
 import CommentThread from "../components/CommentThread";
 import { extractLeadFromHtml } from "../utils/extractLead";
@@ -507,7 +508,10 @@ export default function NoticiaDetalle() {
         style={{ width: `${readingProgress}%` }}
       />
 
-      <div className="min-h-screen bg-transparent text-white">
+      <div className="min-h-screen bg-transparent text-white relative">
+        {/* Switch de idioma ES/EN */}
+        <LanguageSwitch className="fixed top-[calc(var(--nav-h,64px)+60px)] right-4 sm:right-6 z-40" />
+        
         {/* PageHeader con breadcrumb */}
         <PageHeader
           breadcrumb={[
@@ -572,6 +576,20 @@ export default function NoticiaDetalle() {
               )}
             </div>
           )}
+
+          {/* Síguenos en redes sociales */}
+          <div className="flex items-center gap-2 mb-4">
+            <span className="text-sm text-zinc-400">Síguenos en:</span>
+            <a
+              href="https://www.facebook.com/profile.php?id=61580079061652"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Síguenos en Facebook"
+              className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-blue-600 hover:bg-blue-700 text-white transition-colors"
+            >
+              <FaFacebook size={16} />
+            </a>
+          </div>
 
           {/* Header con línea azul lateral */}
           <div className="relative">
