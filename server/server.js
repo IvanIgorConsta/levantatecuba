@@ -12,6 +12,9 @@ const connectDB = require("./config/db");
 const helmet = require('helmet');
 const mongoSanitize = require('express-mongo-sanitize');
 const compression = require('compression');
+const verifyToken = require('./middleware/verifyToken');
+const verifyRole = require('./middleware/verifyRole');
+const { marked } = require('marked');
 
 // Variables de entorno con fallbacks
 process.env.PUBLIC_ORIGIN = process.env.PUBLIC_ORIGIN || 'https://levantatecuba.com';
@@ -288,6 +291,55 @@ app.use("/api/stripe", require("./routes/stripe")); // Rutas de Stripe para prod
 app.use("/api/tienda", require("./routes/store")); // Rutas de la tienda interna
 app.use("/api/shopify", require("./routes/shopify")); // Rutas de Shopify Storefront API
 app.use("/api/redactor-ia", authLimiter, require("./redactor_ia/routes/redactorIA")); // Redactor IA
+
+// Endpoint directo para generar desde texto (usa el mismo módulo de redactor.js)
+app.post("/api/generar-desde-texto", authLimiter, verifyToken, verifyRole(['admin', 'editor']), async (req, res) => {
+  try {
+    const { texto, mode = 'factual' } = req.body;
+    if (!texto || texto.trim().length < 100) {
+      return res.status(400).json({ error: 'El texto debe tener al menos 100 caracteres' });
+    }
+    
+    const { generateSingleDraft } = require('./redactor_ia/services/redactor');
+    const AiConfig = require('./models/AiConfig');
+    const config = await AiConfig.getSingleton();
+    
+    // Crear un "topic" virtual a partir del texto pegado
+    const virtualTopic = {
+      idTema: `text-${Date.now()}`,
+      tituloSugerido: texto.trim().substring(0, 100) + '...',
+      resumenBreve: texto.trim(),
+      categoriaSugerida: null,
+      fuentesTop: [{
+        url: 'texto-pegado',
+        medio: 'Contenido manual',
+        titulo: 'Texto proporcionado por el usuario',
+        snippet: texto.trim(),
+        fecha: new Date()
+      }]
+    };
+    
+    const normalizedMode = mode === 'opinion' ? 'opinion' : 'factual';
+    console.log(`[API] Generando desde texto (${texto.length} chars) modo: ${normalizedMode}`);
+    
+    const draft = await generateSingleDraft(virtualTopic, req.user, normalizedMode, config, 'standard');
+    
+    // Convertir markdown a HTML usando marked (igual que redactor.js)
+    const contenidoHtml = marked(draft.contenidoMarkdown || '');
+    
+    res.json({
+      ok: true,
+      titulo: draft.titulo || '',
+      categoria: draft.categoria || 'General',
+      bajada: draft.bajada || '',
+      contenidoHtml: contenidoHtml,
+      etiquetas: draft.etiquetas || []
+    });
+  } catch (error) {
+    console.error('[API] Error generando desde texto:', error);
+    res.status(500).json({ error: 'Error al generar borrador', message: error.message });
+  }
+});
 app.use("/api/debug", authLimiter, require("./routes/debug")); // Rutas de debug (solo admin)
 app.use("/media", require("./routes/mediaRoutes")); // Servir imágenes procesadas
 app.use("/og", require("./routes/og"));
@@ -296,6 +348,9 @@ app.use("/og", require("./routes/og"));
 console.log('Strategies:', Object.keys(require('passport')._strategies));
 
 // 10) Archivos estáticos con MIME types correctos para AVIF/WebP
+// Servir uploads desde la raíz del proyecto
+app.use("/uploads", express.static(path.join(__dirname, "..", "uploads")));
+// También servir uploads desde /server/uploads/ (para ai_drafts y otros)
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // Servir directorio public con setHeaders para AVIF/WebP

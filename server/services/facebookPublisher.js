@@ -1274,12 +1274,25 @@ function normalizeHashtag(text) {
 
 /**
  * Genera hashtags desde categoría y etiquetas
+ * Solo incluye #Cuba si la noticia está relacionada con Cuba
  * @param {string} categoria - Categoría de la noticia
  * @param {Array<string>} etiquetas - Etiquetas de la noticia
  * @returns {string} Línea de hashtags
  */
 function buildHashtags(categoria, etiquetas = []) {
-  const tags = ['#Cuba']; // Siempre incluir Cuba
+  const tags = [];
+  
+  // Verificar si la noticia está relacionada con Cuba
+  const etiquetasLower = (etiquetas || []).map(e => (e || '').toLowerCase().trim());
+  const categoriaLower = (categoria || '').toLowerCase().trim();
+  const esSobreCuba = 
+    categoriaLower === 'cuba' ||
+    etiquetasLower.some(e => e === 'cuba' || e.includes('cuba'));
+  
+  // Solo agregar #Cuba si la noticia está relacionada con Cuba
+  if (esSobreCuba) {
+    tags.push('#Cuba');
+  }
   
   // Agregar categoría
   if (categoria) {
@@ -1289,14 +1302,17 @@ function buildHashtags(categoria, etiquetas = []) {
     }
   }
   
-  // Agregar hasta 3 etiquetas adicionales
+  // Agregar etiquetas (hasta llenar 5 hashtags)
   if (Array.isArray(etiquetas) && etiquetas.length > 0) {
     const extraTags = etiquetas
-      .slice(0, 3)
       .map(normalizeHashtag)
       .filter(tag => tag && !tags.includes(tag));
     
-    tags.push(...extraTags);
+    // Agregar hasta completar 5 hashtags
+    for (const tag of extraTags) {
+      if (tags.length >= 5) break;
+      tags.push(tag);
+    }
   }
   
   // Limitar a 5 hashtags totales
@@ -1388,6 +1404,73 @@ function extractSummary(titulo, bajada, contenido) {
 }
 
 /**
+ * Array de 30 preguntas para rotación automática en comentarios
+ * Incluye variantes neutrales, sociales, críticas y de participación
+ */
+const COMMENT_QUESTIONS = [
+  // Neutrales
+  "¿Qué opinas de este caso?",
+  "¿Habías escuchado sobre esto?",
+  "¿Te sorprende esta noticia?",
+  "¿Qué piensas al respecto?",
+  "¿Conocías esta situación?",
+  "¿Qué te parece esto?",
+  // Sociales
+  "¿Cómo afecta esto a tu familia?",
+  "¿Has vivido algo similar?",
+  "¿Conoces a alguien en esta situación?",
+  "¿Cómo lo viven en tu comunidad?",
+  "¿Qué dicen tus vecinos sobre esto?",
+  "¿Lo están comentando en tu barrio?",
+  // Críticas
+  "¿Crees que esto cambiará algo?",
+  "¿Por qué crees que sucede esto?",
+  "¿Quién debería responder por esto?",
+  "¿Cuánto más puede durar esta situación?",
+  "¿Ves alguna solución posible?",
+  "¿Confías en que se resuelva?",
+  // Participación
+  "Cuéntanos tu experiencia 👇",
+  "Comparte tu opinión con nosotros 👇",
+  "Déjanos saber qué piensas 👇",
+  "Tu opinión nos importa, comenta 👇",
+  "¿Qué harías tú en esta situación?",
+  "Si pudieras cambiar algo, ¿qué sería?",
+  // Emocionales
+  "¿Cómo te hace sentir esta noticia?",
+  "¿Te indigna o te da esperanza?",
+  "¿Qué sentiste al leer esto?",
+  // Reflexivas
+  "¿Crees que esto es justo?",
+  "¿Debería ser diferente?",
+  "¿Qué futuro ves para Cuba con esto?"
+];
+
+/**
+ * Último índice usado para evitar repeticiones consecutivas
+ */
+let lastQuestionIndex = -1;
+
+/**
+ * Selecciona una pregunta aleatoria del arreglo de rotación
+ * Garantiza que nunca se repita la misma pregunta consecutivamente
+ * @returns {string} Pregunta seleccionada
+ */
+function getRandomCommentQuestion() {
+  let randomIndex;
+  
+  // Generar índice aleatorio diferente al anterior
+  do {
+    randomIndex = Math.floor(Math.random() * COMMENT_QUESTIONS.length);
+  } while (randomIndex === lastQuestionIndex && COMMENT_QUESTIONS.length > 1);
+  
+  // Guardar para la próxima vez
+  lastQuestionIndex = randomIndex;
+  
+  return COMMENT_QUESTIONS[randomIndex];
+}
+
+/**
  * Publica un comentario automático en un post de Facebook
  * @param {Object} options
  * @param {string} options.fbPostId - ID del post de Facebook
@@ -1443,8 +1526,12 @@ async function publishAutoComment({ fbPostId, canonicalUrl, userToken }) {
     finalPageToken = pageToken;
   }
   
-  // Construir mensaje del comentario
-  const commentMessage = `Para más detalles, lee la noticia completa en el enlace del post:\n\n${canonicalUrl}\n\n💬 ¿Qué opinas de este caso?`;
+  // Seleccionar pregunta aleatoria de la rotación (30 variantes)
+  const randomQuestion = getRandomCommentQuestion();
+  console.log(`[FB Comment] 🎲 Pregunta seleccionada: "${randomQuestion}"`);
+  
+  // Construir mensaje del comentario con pregunta rotativa
+  const commentMessage = `Para más detalles, lee la noticia completa en el enlace del post:\n\n${canonicalUrl}\n\n💬 ${randomQuestion}`;
   
   // Publicar comentario en Facebook
   const apiUrl = `https://graph.facebook.com/v23.0/${fbPostId}/comments`;

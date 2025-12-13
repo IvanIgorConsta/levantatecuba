@@ -15,6 +15,7 @@ const { generateDrafts, generateImageForDraft } = require('../services/redactor'
 const { publishDraftToNews } = require('../services/publishDraftHelper');
 const { restartScheduler, getSchedulerStatus } = require('../utils/scheduler');
 const { generateDraftFromUrl } = require('../services/urlDraftGenerator');
+// const { generateDraftFromText } = require('../services/textDraftGenerator'); // Movido a server.js
 const { saveBase64Png } = require('../services/mediaStore');
 const { processNewsImage } = require('../../services/imageProcessor');
 const { getUsageStats } = require('../services/statsService');
@@ -23,6 +24,36 @@ const crypto = require('crypto');
 const categories = require('../config/categories');
 const { imageGenerationQueue, getAllQueueStats } = require('../../utils/operationQueue');
 const { notifyNewNews } = require('../../services/indexNow');
+const multer = require('multer');
+const fs = require('fs');
+const path = require('path');
+
+// Configuración de Multer para subir imagen de borrador
+const draftUploadStorage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const dir = './uploads/drafts';
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    cb(null, dir);
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const ext = path.extname(file.originalname);
+    cb(null, `draft-${req.params.id}-${uniqueSuffix}${ext}`);
+  }
+});
+
+const draftImageUpload = multer({
+  storage: draftUploadStorage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB max
+  fileFilter: (req, file, cb) => {
+    const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    if (allowed.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Solo se permiten imágenes JPG, PNG, WebP o GIF'), false);
+    }
+  }
+});
 
 // Rate limiting para operaciones costosas
 const scanLimiter = rateLimit({
@@ -821,6 +852,12 @@ router.post('/drafts/:id/capture-cover-from-source', imageLimiter, requireEditor
     draft.coverHash = result.coverHash || '';
     draft.imageKind = result.kind || 'processed';
     
+    // 🐛 FIX: Limpiar generatedImages para evitar que muestre imagen anterior
+    if (draft.generatedImages) {
+      draft.generatedImages.principal = '';
+      draft.generatedImages.opcional = '';
+    }
+    
     // Guardar URLs originales para regeneración si se pierde la imagen
     draft.originalImageUrl = result.originalImageUrl || null;
     draft.originalImageSource = result.originalImageSource || sourceUrl;
@@ -878,6 +915,113 @@ router.post('/drafts/:id/capture-cover-from-source', imageLimiter, requireEditor
       ok: false, 
       error: errorMessage,
       code: error.code || 'UNKNOWN_ERROR',
+      draftId: req.params.id
+    });
+  }
+});
+
+/**
+ * POST /api/redactor-ia/drafts/:id/upload-cover
+ * Sube una imagen manual como portada del borrador
+ * Permite al editor subir una imagen desde su dispositivo
+ */
+router.post('/drafts/:id/upload-cover', requireEditor, draftImageUpload.single('cover'), async (req, res) => {
+  try {
+    const draft = await AiDraft.findById(req.params.id);
+    if (!draft) {
+      // Limpiar archivo subido si el draft no existe
+      if (req.file) {
+        fs.unlinkSync(req.file.path);
+      }
+      return res.status(404).json({ 
+        success: false, 
+        ok: false, 
+        error: 'Borrador no encontrado' 
+      });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ 
+        success: false, 
+        ok: false, 
+        error: 'No se proporcionó ninguna imagen' 
+      });
+    }
+
+    console.log(`[API:Upload] Procesando imagen subida para draft ${draft._id}`);
+    console.log(`[API:Upload] Archivo: ${req.file.path} (${req.file.size} bytes)`);
+
+    // Procesar la imagen con el mismo pipeline que usamos para otras imágenes
+    const result = await processNewsImage(req.file.path, {
+      newsId: draft._id.toString(),
+      outputDir: path.join(process.cwd(), 'public', 'media', 'drafts', draft._id.toString()),
+      generateFormats: ['webp', 'avif'],
+      maxWidth: 1200,
+      quality: 85
+    });
+
+    // Eliminar archivo temporal original
+    if (fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
+
+    // Construir URL pública
+    const coverUrl = `/media/drafts/${draft._id}/${result.filename || 'cover.webp'}`;
+    const coverFallbackUrl = result.fallbackFilename 
+      ? `/media/drafts/${draft._id}/${result.fallbackFilename}` 
+      : '';
+
+    // Actualizar el borrador con la nueva portada
+    draft.coverUrl = coverUrl;
+    draft.coverFallbackUrl = coverFallbackUrl;
+    draft.coverHash = result.hash || '';
+    draft.imageKind = 'uploaded';
+    
+    // 🐛 FIX: Limpiar generatedImages para evitar que muestre imagen anterior
+    if (draft.generatedImages) {
+      draft.generatedImages.principal = '';
+      draft.generatedImages.opcional = '';
+    }
+    
+    if (!draft.aiMetadata) {
+      draft.aiMetadata = {};
+    }
+    draft.aiMetadata.imageProvider = 'manual';
+    draft.aiMetadata.uploadedAt = new Date();
+
+    await draft.save();
+
+    // Devolver draft actualizado con populates
+    const populated = await AiDraft.findById(draft._id)
+      .populate('generatedBy', 'nombre email')
+      .populate('reviewedBy', 'nombre email');
+
+    console.log(`[API:Upload] ✅ Imagen subida exitosamente: ${coverUrl}`);
+
+    res.json({ 
+      success: true,
+      ok: true, 
+      message: 'Imagen subida exitosamente',
+      imageUrl: coverUrl,
+      cover: coverUrl,
+      coverHash: draft.coverHash || '',
+      imageKind: 'uploaded',
+      provider: 'manual',
+      draftId: String(populated._id),
+      draft: populated 
+    });
+  } catch (error) {
+    console.error('[API:Upload] Error subiendo imagen:', error.message);
+    
+    // Limpiar archivo si hay error
+    if (req.file && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
+    
+    res.status(500).json({ 
+      success: false, 
+      ok: false, 
+      error: error.message || 'Error al procesar la imagen subida',
       draftId: req.params.id
     });
   }
@@ -2318,63 +2462,82 @@ router.post('/auto-schedule', requireEditor, async (req, res) => {
     } = config;
     
     // ═══════════════════════════════════════════════════════════════
-    // USAR ZONA HORARIA DE CUBA (America/Havana)
+    // USAR ZONA HORARIA DE CUBA (America/Havana) - CÁLCULO ROBUSTO
     // ═══════════════════════════════════════════════════════════════
     const now = new Date();
     const intervalMs = autoScheduleInterval * 60 * 1000;
     
-    // Obtener la hora actual en Cuba
+    // Función helper para obtener componentes de fecha/hora en Cuba
+    const getCubaComponents = (date) => {
+      const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'America/Havana',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      });
+      const parts = formatter.formatToParts(date);
+      return {
+        year: parseInt(parts.find(p => p.type === 'year').value),
+        month: parseInt(parts.find(p => p.type === 'month').value),
+        day: parseInt(parts.find(p => p.type === 'day').value),
+        hour: parseInt(parts.find(p => p.type === 'hour').value),
+        minute: parseInt(parts.find(p => p.type === 'minute').value)
+      };
+    };
+    
+    // Función helper para crear fecha UTC desde componentes Cuba
+    const cubaToUTC = (year, month, day, hour, minute = 0) => {
+      // Crear fecha en Cuba y convertir a UTC
+      // Usamos un truco: creamos la fecha como si fuera UTC y ajustamos
+      const cubaDateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00`;
+      
+      // Calcular offset dinámico de Cuba (puede ser -4 o -5 dependiendo de DST)
+      const testDate = new Date(cubaDateStr + 'Z'); // Como UTC temporal
+      const cubaCheck = getCubaComponents(testDate);
+      // Si la hora Cuba difiere de lo que pusimos, hay un offset
+      let offsetHours = hour - cubaCheck.hour;
+      if (offsetHours < -12) offsetHours += 24;
+      if (offsetHours > 12) offsetHours -= 24;
+      
+      // Aplicar offset para obtener UTC real
+      return new Date(testDate.getTime() + offsetHours * 60 * 60 * 1000);
+    };
+    
     const cubaFormatter = new Intl.DateTimeFormat('en-US', {
       timeZone: 'America/Havana',
       hour: 'numeric',
       minute: 'numeric',
       hour12: false
     });
-    const cubaParts = cubaFormatter.formatToParts(now);
-    const cubaHour = parseInt(cubaParts.find(p => p.type === 'hour').value);
-    const cubaMinute = parseInt(cubaParts.find(p => p.type === 'minute').value);
     
-    console.log(`[AutoSchedule] Hora Cuba: ${cubaHour}:${cubaMinute.toString().padStart(2, '0')}`);
+    const cubaNow = getCubaComponents(now);
+    const cubaHour = cubaNow.hour;
+    const cubaMinute = cubaNow.minute;
+    
+    console.log(`[AutoSchedule] Fecha/Hora Cuba: ${cubaNow.day}/${cubaNow.month}/${cubaNow.year} ${cubaHour}:${String(cubaMinute).padStart(2, '0')}`);
     console.log(`[AutoSchedule] Franja: ${autoScheduleStartHour}:00 - ${autoScheduleEndHour}:00`);
-    
-    // Calcular offset de Cuba respecto a UTC
-    const cubaOffset = -5 * 60; // Cuba es UTC-5 (horario estándar)
-    
-    // Crear fechas de inicio y fin de la franja en hora de Cuba (convertidas a UTC)
-    const startToday = new Date(now);
-    startToday.setUTCHours(autoScheduleStartHour - cubaOffset / 60, 0, 0, 0);
-    
-    const endToday = new Date(now);
-    endToday.setUTCHours(autoScheduleEndHour - cubaOffset / 60, 0, 0, 0);
-    
-    // Ajustar si el día cambió por el offset
-    const cubaDateFormatter = new Intl.DateTimeFormat('en-US', {
-      timeZone: 'America/Havana',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit'
-    });
-    const cubaDateStr = cubaDateFormatter.format(now);
     
     // Calcular el primer slot de publicación basado en hora de Cuba
     let currentSlot;
     
     if (cubaHour < autoScheduleStartHour) {
-      // 1) Estamos antes de la franja en Cuba → usar inicio de hoy (hora Cuba)
-      currentSlot = new Date(now);
-      currentSlot.setUTCHours(autoScheduleStartHour + 5, 0, 0, 0); // +5 para convertir Cuba a UTC
-      console.log(`[AutoSchedule] Antes de franja, programando desde: ${autoScheduleStartHour}:00 Cuba`);
+      // 1) Estamos antes de la franja en Cuba → usar inicio de HOY en Cuba
+      currentSlot = cubaToUTC(cubaNow.year, cubaNow.month, cubaNow.day, autoScheduleStartHour, 0);
+      console.log(`[AutoSchedule] Antes de franja, programando desde: ${autoScheduleStartHour}:00 Cuba (hoy ${cubaNow.day}/${cubaNow.month})`);
     } else if (cubaHour >= autoScheduleStartHour && cubaHour < autoScheduleEndHour) {
       // 2) Estamos dentro de la franja → empezar desde ahora + intervalo
       currentSlot = new Date(now.getTime() + intervalMs);
       currentSlot.setSeconds(0, 0);
       console.log(`[AutoSchedule] Dentro de franja, primer slot en ${autoScheduleInterval} minutos`);
     } else {
-      // 3) Estamos después de la franja → saltar al inicio del día siguiente
-      currentSlot = new Date(now);
-      currentSlot.setDate(currentSlot.getDate() + 1);
-      currentSlot.setUTCHours(autoScheduleStartHour + 5, 0, 0, 0); // +5 para convertir Cuba a UTC
-      console.log(`[AutoSchedule] Después de franja, programando para mañana ${autoScheduleStartHour}:00 Cuba`);
+      // 3) Estamos después de la franja → saltar al inicio del día siguiente EN CUBA
+      const nextDayCuba = new Date(cubaNow.year, cubaNow.month - 1, cubaNow.day + 1);
+      const nextDay = getCubaComponents(nextDayCuba);
+      currentSlot = cubaToUTC(nextDay.year, nextDay.month, nextDay.day + 1, autoScheduleStartHour, 0);
+      console.log(`[AutoSchedule] Después de franja, programando para mañana ${autoScheduleStartHour}:00 Cuba (día ${nextDay.day + 1}/${nextDay.month})`);
     }
     
     const scheduledDrafts = [];
@@ -2394,15 +2557,13 @@ router.post('/auto-schedule', requireEditor, async (req, res) => {
       // Calcular siguiente slot
       let nextSlot = new Date(currentSlot.getTime() + intervalMs);
       
-      // Obtener hora de Cuba del siguiente slot
-      const nextSlotCubaParts = cubaFormatter.formatToParts(nextSlot);
-      const nextSlotCubaHour = parseInt(nextSlotCubaParts.find(p => p.type === 'hour').value);
+      // Obtener componentes Cuba del siguiente slot
+      const nextSlotCuba = getCubaComponents(nextSlot);
       
-      // Si nos salimos de la franja (hora Cuba >= hora fin), saltar al día siguiente
-      if (nextSlotCubaHour >= autoScheduleEndHour) {
-        // Saltar al inicio de la franja del día siguiente
-        nextSlot.setDate(nextSlot.getDate() + 1);
-        nextSlot.setUTCHours(autoScheduleStartHour + 5, 0, 0, 0); // +5 para Cuba a UTC
+      // Si nos salimos de la franja (hora Cuba >= hora fin), saltar al día siguiente EN CUBA
+      if (nextSlotCuba.hour >= autoScheduleEndHour) {
+        // Calcular el día siguiente basado en el día CUBA, no UTC
+        nextSlot = cubaToUTC(nextSlotCuba.year, nextSlotCuba.month, nextSlotCuba.day + 1, autoScheduleStartHour, 0);
       }
       
       currentSlot = nextSlot;
@@ -2422,6 +2583,7 @@ router.post('/auto-schedule', requireEditor, async (req, res) => {
     res.status(500).json({ error: 'Error al programar borradores automáticamente' });
   }
 });
+
 
 // ==================== GENERAR DESDE URL ====================
 

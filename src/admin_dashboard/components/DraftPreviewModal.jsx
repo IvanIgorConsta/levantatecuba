@@ -332,7 +332,7 @@ export default function DraftPreviewModal({ draft, onClose, onApprove, onResetTo
             {/* Imagen principal con cache-bust */}
             {(draft?.coverUrl || draft?.generatedImages?.principal) && (
               <div key={`cover-${draft.coverHash || imageKey}`} className="relative">
-                {draft.coverUrl && draft.imageKind === 'processed' ? (
+                {draft.coverUrl ? (
                   <picture className="block w-full">
                     <source 
                       srcSet={`${draft.coverUrl}?v=${draft.coverHash || ''}`}
@@ -348,7 +348,7 @@ export default function DraftPreviewModal({ draft, onClose, onApprove, onResetTo
                   </picture>
                 ) : (
                   <img
-                    src={`${draft.coverUrl || draft.generatedImages?.principal}?v=${draft.coverHash || Date.now()}`}
+                    src={`${draft.generatedImages?.principal}?v=${draft.coverHash || Date.now()}`}
                     alt={draft.titulo || 'Imagen principal'}
                     className="w-full h-56 md:h-64 object-cover rounded-lg border border-zinc-800 shadow-lg"
                     loading="eager"
@@ -377,6 +377,14 @@ export default function DraftPreviewModal({ draft, onClose, onApprove, onResetTo
                     title="Imagen procesada y almacenada localmente desde fuente"
                   >
                     ✓ Procesada
+                  </div>
+                )}
+                {draft.imageKind === 'uploaded' && (
+                  <div 
+                    className="absolute bottom-2 right-2 px-2 py-1 bg-blue-600/90 backdrop-blur text-white text-xs rounded"
+                    title="Imagen subida manualmente"
+                  >
+                    📤 Manual
                   </div>
                 )}
                 

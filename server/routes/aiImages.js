@@ -655,4 +655,90 @@ router.post("/generate-cover", checkAIEnabled, async (req, res) => {
   }
 });
 
+/**
+ * POST /api/ai/generate-cover-preview
+ * Genera portada para preview (sin guardar en DB)
+ * Para uso antes de crear la noticia
+ */
+router.post("/generate-cover-preview", checkAIEnabled, async (req, res) => {
+  try {
+    const { title, content } = req.body;
+    
+    if (!title?.trim()) {
+      return res.status(400).json({
+        error: "Se requiere título para generar la imagen"
+      });
+    }
+    
+    console.log(`[AI:CoverPreview] Generando portada preview`);
+    console.log(`[AI:CoverPreview] Título: "${title.substring(0, 80)}..."`);
+    
+    const { generateWithProvider } = require('../redactor_ia/services/imageProvider');
+    const { buildNeoRenaissancePrompt } = require('../redactor_ia/services/promptTemplates');
+    const crypto = require('crypto');
+    const path = require('path');
+    const fs = require('fs');
+    
+    // Construir prompt directo (solo título)
+    const { prompt } = buildNeoRenaissancePrompt(title.trim());
+    
+    console.log(`[AI:CoverPreview] Prompt: "${prompt}"`);
+    
+    // Generar imagen con el proveedor configurado
+    const provider = process.env.IMG_DEFAULT_PROVIDER || 'dall-e-3';
+    const tempId = `preview-${Date.now()}`;
+    
+    const result = await generateWithProvider({
+      provider,
+      mode: 'synthesize_from_context',
+      draftId: tempId,
+      prompt,
+      title: title.trim(),
+      summary: content?.substring(0, 500) || '',
+      category: '',
+      _imageContext: {
+        theme: 'direct',
+        mode: 'direct_title',
+        style: 'editorial',
+        locale: 'es-CU'
+      }
+    });
+    
+    if (!result.ok) {
+      throw new Error(result.error || 'Error generando imagen');
+    }
+    
+    // Guardar imagen en carpeta temporal
+    let coverUrl;
+    if (result.url) {
+      coverUrl = result.url;
+    } else if (result.b64) {
+      const nameHash = crypto.createHash('sha1').update(`preview-${Date.now()}`).digest('hex');
+      const filename = `preview_${nameHash}.png`;
+      const dir = './public/media/previews';
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      
+      const buffer = Buffer.from(result.b64, 'base64');
+      const filePath = path.join(dir, filename);
+      fs.writeFileSync(filePath, buffer);
+      coverUrl = `/media/previews/${filename}`;
+    } else {
+      throw new Error('No se recibió imagen del proveedor');
+    }
+    
+    console.log(`[AI:CoverPreview] ✅ Portada preview generada: ${coverUrl}`);
+    
+    res.json({
+      ok: true,
+      coverUrl,
+      provider: result.provider
+    });
+    
+  } catch (error) {
+    console.error('[AI:CoverPreview] Error:', error.message);
+    const { status, body } = mapErrorToResponse(error);
+    return res.status(status).json(body);
+  }
+});
+
 module.exports = router;

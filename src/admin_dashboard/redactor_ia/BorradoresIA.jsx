@@ -2,8 +2,9 @@
 import { useState, useEffect } from 'react';
 import { 
   FileText, Eye, Edit3, Trash2, Image as ImageIcon,
-  CheckCircle, XCircle, Clock, Sparkles, ExternalLink, AlertCircle, Calendar, ChevronDown
+  CheckCircle, XCircle, Clock, Sparkles, ExternalLink, AlertCircle, Calendar, ChevronDown, Upload
 } from 'lucide-react';
+import { useRef } from 'react';
 import toast from 'react-hot-toast';
 import DraftPreviewModal from '../components/DraftPreviewModal';
 import ReviewNotesModal from '../components/ReviewNotesModal';
@@ -27,6 +28,8 @@ export default function BorradoresIA() {
   const [revisionPolling, setRevisionPolling] = useState({});
   const [changesDropdown, setChangesDropdown] = useState({});
   const [imageGenDropdown, setImageGenDropdown] = useState({});
+  const [uploadingDraftId, setUploadingDraftId] = useState(null);
+  const fileInputRef = useRef(null);
 
   // Función para notificar cambios en estadísticas (evento custom)
   const notifyStatsChange = () => {
@@ -191,6 +194,7 @@ export default function BorradoresIA() {
   
   // Capturar imagen desde el sitio original de la noticia
   const handleCaptureFromSource = async (draftId) => {
+    console.log('[BorradoresIA:Capture] 🚀 INICIANDO captura para draft:', draftId);
     setIsGeneratingImage(prev => ({ ...prev, [draftId]: true }));
     toast.loading('Capturando imagen del sitio...', { id: `img-${draftId}` });
     
@@ -215,18 +219,32 @@ export default function BorradoresIA() {
       if (data.success || data.ok) {
         toast.success('Imagen capturada exitosamente', { id: `img-${draftId}` });
         
+        // 🔍 DEBUG: Ver qué valores se van a usar
+        const newCoverUrl = data.imageUrl || data.cover || data.draft?.coverUrl;
+        const newCoverHash = data.hash || data.coverHash || data.draft?.coverHash;
+        console.log('[BorradoresIA:Capture] 📸 Actualizando estado con:', {
+          newCoverUrl,
+          newCoverHash,
+          imageKind: data.imageKind || data.draft?.imageKind || 'processed',
+          draftFromServer: data.draft
+        });
+        
         // Actualizar el borrador en el estado local
+        // 🐛 FIX: SIEMPRE usar timestamp para forzar cache-busting
+        const cacheBuster = `${Date.now()}_${newCoverHash?.slice(0, 8) || ''}`;
+        console.log('[BorradoresIA:Capture] 🔄 Cache buster generado:', cacheBuster);
         setDrafts(prev => prev.map(d => 
           d._id === draftId 
             ? { 
                 ...d, 
-                coverUrl: data.imageUrl || data.cover || data.draft?.coverUrl,
+                coverUrl: newCoverUrl,
                 coverFallbackUrl: data.draft?.coverFallbackUrl,
-                coverHash: data.hash || data.coverHash || data.draft?.coverHash,
+                coverHash: cacheBuster,
                 imageKind: data.imageKind || data.draft?.imageKind || 'processed',
                 imageProvider: data.provider || data.draft?.imageProvider || 'internal',
                 coverImageUrl: data.draft?.coverImageUrl,
-                generatedImages: data.draft?.generatedImages,
+                // 🐛 FIX: Limpiar generatedImages explícitamente para evitar mostrar imagen anterior
+                generatedImages: { principal: '', opcional: '' },
                 aiMetadata: {
                   ...d.aiMetadata,
                   imageProvider: 'internal',
@@ -249,6 +267,94 @@ export default function BorradoresIA() {
       toast.error('Error de conexión al capturar imagen', { id: `img-${draftId}` });
     } finally {
       setIsGeneratingImage(prev => ({ ...prev, [draftId]: false }));
+    }
+  };
+
+  // Subir imagen manual
+  const handleUploadImage = (draftId) => {
+    setUploadingDraftId(draftId);
+    setImageGenDropdown({});
+    // Abrir el selector de archivos
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  // Manejar archivo seleccionado
+  const handleFileSelected = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !uploadingDraftId) {
+      setUploadingDraftId(null);
+      return;
+    }
+
+    const draftId = uploadingDraftId;
+    setIsGeneratingImage(prev => ({ ...prev, [draftId]: true }));
+    toast.loading('Subiendo imagen...', { id: `img-${draftId}` });
+
+    try {
+      const formData = new FormData();
+      formData.append('cover', file);
+
+      const res = await fetch(`/api/redactor-ia/drafts/${draftId}/upload-cover`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        },
+        body: formData
+      });
+
+      const data = await res.json();
+
+      console.log('[BorradoresIA:Upload] Respuesta del servidor:', {
+        status: res.status,
+        ok: res.ok,
+        data
+      });
+
+      if (data.success || data.ok) {
+        toast.success('Imagen subida exitosamente', { id: `img-${draftId}` });
+
+        // Actualizar el borrador en el estado local
+        setDrafts(prev => prev.map(d =>
+          d._id === draftId
+            ? {
+                ...d,
+                coverUrl: data.imageUrl || data.cover || data.draft?.coverUrl,
+                coverFallbackUrl: data.draft?.coverFallbackUrl,
+                coverHash: data.hash || data.coverHash || data.draft?.coverHash,
+                imageKind: data.imageKind || data.draft?.imageKind || 'uploaded',
+                imageProvider: 'manual',
+                coverImageUrl: data.draft?.coverImageUrl,
+                // 🐛 FIX: Limpiar generatedImages explícitamente para evitar mostrar imagen anterior
+                generatedImages: { principal: '', opcional: '' },
+                aiMetadata: {
+                  ...d.aiMetadata,
+                  imageProvider: 'manual',
+                  uploadedAt: new Date().toISOString()
+                }
+              }
+            : d
+        ));
+
+        // Actualizar modal si está abierto
+        if (previewModalDraft?._id === draftId) {
+          setPreviewModalDraft(data.draft);
+        }
+      } else {
+        console.error('[BorradoresIA:Upload] Error en respuesta:', data);
+        toast.error(data.error || 'No se pudo subir la imagen', { id: `img-${draftId}` });
+      }
+    } catch (error) {
+      console.error('Error subiendo imagen:', error);
+      toast.error('Error de conexión al subir imagen', { id: `img-${draftId}` });
+    } finally {
+      setIsGeneratingImage(prev => ({ ...prev, [draftId]: false }));
+      setUploadingDraftId(null);
+      // Limpiar el input para permitir seleccionar el mismo archivo de nuevo
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   };
   
@@ -815,28 +921,23 @@ export default function BorradoresIA() {
                   {/* Miniatura (columna izquierda) */}
                   <div className="col-span-1">
                     <div className="w-24 h-16 rounded-md overflow-hidden border border-zinc-800/60 bg-zinc-800/60 relative">
-                      {/* Mostrar imagen procesada si existe y imageKind === 'processed' */}
-                      {draft.imageKind === 'processed' && draft.coverUrl && (
-                        <picture key={draft.coverHash || draft._id} className="absolute inset-0">
-                          <source 
-                            srcSet={`${draft.coverUrl}?v=${draft.coverHash || ''}`}
-                            type="image/avif"
-                          />
-                          <img
-                            src={`${draft.coverFallbackUrl || draft.coverUrl}?v=${draft.coverHash || ''}`}
-                            alt={draft.titulo}
-                            className="w-full h-full object-cover"
-                            loading="lazy"
-                            decoding="async"
-                            onError={(e) => {
-                              e.target.style.display = 'none';
-                            }}
-                          />
-                        </picture>
+                      {/* Mostrar coverUrl si existe (processed, uploaded, ai, etc.) */}
+                      {draft.coverUrl && (
+                        <img
+                          key={`img-${draft._id}-${draft.coverHash}`}
+                          src={`${draft.coverUrl}?v=${draft.coverHash || Date.now()}`}
+                          alt={draft.titulo}
+                          className="absolute inset-0 w-full h-full object-cover"
+                          loading="lazy"
+                          decoding="async"
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                          }}
+                        />
                       )}
                       
-                      {/* Fallback a generatedImages.principal si no es processed */}
-                      {draft.imageKind !== 'processed' && draft.generatedImages?.principal && (
+                      {/* Fallback a generatedImages.principal solo si no hay coverUrl */}
+                      {!draft.coverUrl && draft.generatedImages?.principal && (
                         <img
                           key={draft.coverHash || draft._id}
                           src={`${draft.generatedImages.principal}?v=${draft.coverHash || Date.now()}`}
@@ -865,6 +966,14 @@ export default function BorradoresIA() {
                           title="Imagen procesada y almacenada localmente desde fuente"
                         >
                           ✓ Procesada
+                        </div>
+                      )}
+                      {draft.imageKind === 'uploaded' && (
+                        <div 
+                          className="absolute bottom-1 right-1 px-1.5 py-0.5 bg-blue-600/80 backdrop-blur text-white text-[10px] rounded"
+                          title="Imagen subida manualmente"
+                        >
+                          📤 Manual
                         </div>
                       )}
                       {/** @feature: opción "Generar desde contexto" (sin referencia, solo DALL-E) — Oct 2025 **/}
@@ -994,28 +1103,23 @@ export default function BorradoresIA() {
                 <div className="hidden md:grid md:grid-cols-[auto,1fr,auto] md:gap-4 items-start cursor-pointer" onClick={() => setPreviewModalDraft(draft)}>
                   {/* Col 1: Miniatura SOLAMENTE (desktop) */}
                   <div className="w-40 h-24 rounded-md overflow-hidden bg-zinc-800/60 border border-zinc-800/60 relative shrink-0 z-0">
-                  {/* Mostrar imagen procesada si existe y imageKind === 'processed' */}
-                  {draft.imageKind === 'processed' && draft.coverUrl && (
-                    <picture key={draft.coverHash || draft._id} className="absolute inset-0">
-                      <source 
-                        srcSet={`${draft.coverUrl}?v=${draft.coverHash || ''}`}
-                        type="image/avif"
-                      />
-                      <img
-                        src={`${draft.coverFallbackUrl || draft.coverUrl}?v=${draft.coverHash || ''}`}
-                        alt={draft.titulo}
-                        className="absolute inset-0 w-full h-full object-cover"
-                        loading="lazy"
-                        decoding="async"
-                        onError={(e) => {
-                          e.target.style.display = 'none';
-                        }}
-                      />
-                    </picture>
+                  {/* Mostrar coverUrl si existe (processed, uploaded, ai, etc.) */}
+                  {draft.coverUrl && (
+                    <img
+                      key={`img-desktop-${draft._id}-${draft.coverHash}`}
+                      src={`${draft.coverUrl}?v=${draft.coverHash || Date.now()}`}
+                      alt={draft.titulo}
+                      className="absolute inset-0 w-full h-full object-cover"
+                      loading="lazy"
+                      decoding="async"
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                      }}
+                    />
                   )}
                   
-                  {/* Fallback a generatedImages.principal si no es processed */}
-                  {draft.imageKind !== 'processed' && draft.generatedImages?.principal && (
+                  {/* Fallback a generatedImages.principal solo si no hay coverUrl */}
+                  {!draft.coverUrl && draft.generatedImages?.principal && (
                     <img
                       key={draft.coverHash || draft._id}
                       src={`${draft.generatedImages.principal}?v=${draft.coverHash || Date.now()}`}
@@ -1044,6 +1148,14 @@ export default function BorradoresIA() {
                       title="Imagen procesada y almacenada localmente desde fuente"
                     >
                       ✓ Procesada
+                    </div>
+                  )}
+                  {draft.imageKind === 'uploaded' && (
+                    <div 
+                      className="absolute bottom-1 right-1 px-1.5 py-0.5 bg-blue-600/80 backdrop-blur text-white text-[10px] rounded z-10"
+                      title="Imagen subida manualmente"
+                    >
+                      📤 Manual
                     </div>
                   )}
                   {(draft.imageKind === 'ai' || draft.imageKind === 'real') && (
@@ -1207,7 +1319,7 @@ export default function BorradoresIA() {
                     </button>
                     
                     {imageGenDropdown[draft._id] && (
-                      <div className="absolute top-full right-0 mt-1 w-64 bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl z-50 overflow-hidden">
+                      <div className="absolute bottom-full right-0 mb-1 w-64 bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl z-[100] overflow-hidden">
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -1230,6 +1342,17 @@ export default function BorradoresIA() {
                         >
                           <span className="font-medium text-white">Capturar imagen del sitio</span>
                           <span className="text-xs text-zinc-400">Usar imagen de la noticia original</span>
+                        </button>
+                        <div className="border-t border-zinc-800" />
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleUploadImage(draft._id);
+                          }}
+                          className="w-full px-4 py-3 text-left text-sm hover:bg-zinc-800 transition-colors flex flex-col gap-1"
+                        >
+                          <span className="font-medium text-white">Subir imagen</span>
+                          <span className="text-xs text-zinc-400">Seleccionar imagen desde tu dispositivo</span>
                         </button>
                       </div>
                     )}
@@ -1306,7 +1429,7 @@ export default function BorradoresIA() {
                             </button>
                             
                             {changesDropdown[draft._id] && (
-                              <div className="absolute top-full right-0 mt-1 w-64 bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl z-50 overflow-hidden">
+                              <div className="absolute bottom-full right-0 mb-1 w-64 bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl z-[100] overflow-hidden">
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
@@ -1402,7 +1525,7 @@ export default function BorradoresIA() {
                     </button>
                     
                     {imageGenDropdown[`mobile-${draft._id}`] && (
-                      <div className="absolute top-full right-0 mt-1 w-64 bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl z-50 overflow-hidden">
+                      <div className="absolute bottom-full right-0 mb-1 w-64 bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl z-[100] overflow-hidden">
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -1425,6 +1548,17 @@ export default function BorradoresIA() {
                         >
                           <span className="font-medium text-white">Capturar imagen del sitio</span>
                           <span className="text-xs text-zinc-400">Usar imagen de la noticia original</span>
+                        </button>
+                        <div className="border-t border-zinc-800" />
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleUploadImage(draft._id);
+                          }}
+                          className="w-full px-4 py-3 text-left text-sm hover:bg-zinc-800 transition-colors flex flex-col gap-1"
+                        >
+                          <span className="font-medium text-white">Subir imagen</span>
+                          <span className="text-xs text-zinc-400">Seleccionar imagen desde tu dispositivo</span>
                         </button>
                       </div>
                     )}
@@ -1501,7 +1635,7 @@ export default function BorradoresIA() {
                             </button>
                             
                             {changesDropdown[`mobile-${draft._id}`] && (
-                              <div className="absolute top-full left-0 mt-1 w-64 bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl z-50 overflow-hidden">
+                              <div className="absolute bottom-full left-0 mb-1 w-64 bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl z-[100] overflow-hidden">
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
@@ -1729,6 +1863,15 @@ export default function BorradoresIA() {
           </div>
         </div>
       )}
+
+      {/* Input file hidden para subir imagen */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileSelected}
+        accept="image/jpeg,image/png,image/webp,image/gif"
+        className="hidden"
+      />
     </div>
   );
 }

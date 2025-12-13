@@ -569,7 +569,21 @@ export default function AdminNews() {
       formData.append("status", "published");
     }
 
-    if (form.imagen) formData.append("imagen", form.imagen);
+    // Debug: verificar estado de imagen antes de enviar
+    console.log("[AdminNews] Estado de imagen al publicar:", {
+      tieneImagen: !!form.imagen,
+      imagenType: form.imagen?.constructor?.name,
+      imagenName: form.imagen?.name,
+      imagenSize: form.imagen?.size,
+      tienePreview: !!form.imagenPreview
+    });
+
+    if (form.imagen) {
+      formData.append("imagen", form.imagen);
+      console.log("[AdminNews] ✅ Imagen agregada al FormData");
+    } else {
+      console.warn("[AdminNews] ⚠️ No hay imagen para enviar");
+    }
     if (form.imagenOpcional instanceof File) {
       formData.append("imagenOpcional", form.imagenOpcional);
     } else if (form.imagenOpcional === "") {

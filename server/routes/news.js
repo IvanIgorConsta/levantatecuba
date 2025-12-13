@@ -1,5 +1,7 @@
 const express = require("express");
 const router = express.Router();
+
+console.log('[NEWS ROUTES] ✅ Archivo de rutas de noticias cargado correctamente');
 const News = require("../models/News");
 const User = require("../models/User");
 const multer = require("multer");
@@ -420,12 +422,17 @@ router.post(
     body("categoria").optional().isIn(["General", "Política", "Economía", "Internacional", "Socio político", "Tecnología", "Tendencia", "Deporte"]).withMessage("Categoría no válida"),
   ],
   async (req, res) => {
+    console.log('[NEWS POST] ========== INICIO CREACIÓN DE NOTICIA ==========');
+    console.log('[NEWS POST] req.files:', JSON.stringify(req.files ? Object.keys(req.files) : 'undefined'));
+    
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      console.log('[NEWS POST] Errores de validación:', errors.array());
       return res.status(400).json({ error: "Datos inválidos", details: errors.array() });
     }
     try {
       const { titulo, contenido, categoria, destacada, status, publishAt, autor: autorFromForm } = req.body;
+      console.log('[NEWS POST] Título:', titulo?.substring(0, 50));
 
       // Usar autor del formulario si viene, sino calcular desde JWT
       let autor = autorFromForm?.trim() || "";
@@ -435,9 +442,18 @@ router.post(
       }
       if (!autor) autor = "Anónimo";
 
-      const imagen = req.files?.imagen?.[0]?.filename
-        ? `/uploads/news/${req.files.imagen[0].filename}`
-        : "";
+      // Debug: verificar archivos recibidos
+      console.log('[NEWS POST] ===== DEBUG FILES =====');
+      console.log('[NEWS POST] req.files completo:', JSON.stringify(req.files, null, 2));
+      
+      let imagen = "";
+      if (req.files && req.files.imagen && req.files.imagen[0]) {
+        imagen = `/uploads/news/${req.files.imagen[0].filename}`;
+        console.log('[NEWS POST] ✅ Imagen encontrada:', imagen);
+      } else {
+        console.log('[NEWS POST] ⚠️ No se encontró imagen en req.files');
+        console.log('[NEWS POST] req.files keys:', req.files ? Object.keys(req.files) : 'undefined');
+      }
       const imagenOpcional = req.files?.imagenOpcional?.[0]?.filename
         ? `/uploads/news/${req.files.imagenOpcional[0].filename}`
         : "";
@@ -510,6 +526,10 @@ router.put(
     if (!errors.isEmpty()) return res.status(400).json({ error: "Datos inválidos", details: errors.array() });
 
     try {
+      console.log('[NEWS PUT] ========== EDITANDO NOTICIA ==========');
+      console.log('[NEWS PUT] ID:', req.params.id);
+      console.log('[NEWS PUT] req.files:', JSON.stringify(req.files, null, 2));
+      
       const noticia = await News.findById(req.params.id);
       if (!noticia) return res.status(404).json({ error: "Noticia no encontrada" });
 
@@ -524,6 +544,9 @@ router.put(
       // Imagen principal solo se reemplaza
       if (req.files?.imagen?.[0]) {
         noticia.imagen = `/uploads/news/${req.files.imagen[0].filename}`;
+        console.log('[NEWS PUT] ✅ Imagen actualizada:', noticia.imagen);
+      } else {
+        console.log('[NEWS PUT] ⚠️ No hay nueva imagen para actualizar');
       }
 
       // Imagen opcional: eliminar o reemplazar

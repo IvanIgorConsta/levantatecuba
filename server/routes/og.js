@@ -521,17 +521,17 @@ function getExcerpt(contenido, maxLength = 200) {
  * Ruta dedicada para OG previews de noticias
  * Devuelve HTML con meta tags para bots de redes sociales
  */
-router.get("/noticias/:id", async (req, res) => {
+router.get("/noticias/:slugOrId", async (req, res) => {
   try {
-    const { id } = req.params;
+    const { slugOrId } = req.params;
     
-    // Validar ObjectId
-    if (!id.match(/^[0-9a-fA-F]{24}$/)) {
+    // Validar que tenga formato válido (slug o ObjectId)
+    if (!slugOrId || slugOrId.length < 3) {
       return res.redirect(`https://levantatecuba.com/noticias`);
     }
     
-    // Buscar noticia
-    const noticia = await News.findById(id);
+    // Buscar noticia por slug o ID
+    const noticia = await News.findBySlugOrId(slugOrId);
     
     if (!noticia) {
       return res.redirect(`https://levantatecuba.com/noticias`);
@@ -545,7 +545,9 @@ router.get("/noticias/:id", async (req, res) => {
     let imageUrl = noticia.imagen || noticia.imagenOpcional || noticia.imagenSecundaria;
     imageUrl = getAbsoluteImageUrl(imageUrl);
     
-    const url = `https://levantatecuba.com/noticias/${id}`;
+    // Usar slug para URL canónica si existe, sino usar ID
+    const canonicalSlug = noticia.slug || noticia._id.toString();
+    const url = `https://levantatecuba.com/noticias/${canonicalSlug}`;
     
     // Generar HTML con OG tags
     const html = renderOgPage({

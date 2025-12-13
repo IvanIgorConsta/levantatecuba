@@ -155,14 +155,27 @@ export function generateFacebookPostText(noticia, url) {
   // 2. Generar resumen (sin repetir título)
   const summary = generateSummary(bajada, contenido, titulo, 180);
   
-  // 3. Generar hashtags (siempre incluir #Cuba primero)
-  const tagHashtags = generateHashtags(etiquetas, 3);
+  // 3. Generar hashtags
+  const tagHashtags = generateHashtags(etiquetas, 4);
   
   // Agregar hashtag de categoría
   const categoryHashtag = categoria ? `#${categoria.replace(/\s+/g, '')}` : null;
   
-  // Combinar hashtags: Cuba + categoría + tags (máximo 5 total)
-  const allHashtags = ['#Cuba'];
+  // Verificar si la noticia está relacionada con Cuba
+  const etiquetasLower = (etiquetas || []).map(e => (e || '').toLowerCase().trim());
+  const categoriaLower = (categoria || '').toLowerCase().trim();
+  const esSobreCuba = 
+    categoriaLower === 'cuba' ||
+    etiquetasLower.some(e => e === 'cuba' || e.includes('cuba'));
+  
+  // Combinar hashtags: solo Cuba si es relevante + categoría + tags (máximo 5 total)
+  const allHashtags = [];
+  
+  // Solo agregar #Cuba si la noticia está relacionada con Cuba
+  if (esSobreCuba) {
+    allHashtags.push('#Cuba');
+  }
+  
   if (categoryHashtag && !allHashtags.includes(categoryHashtag)) {
     allHashtags.push(categoryHashtag);
   }

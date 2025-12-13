@@ -6,6 +6,8 @@ import Cropper from "react-easy-crop";
 import { getCroppedImg } from "@utils/cropImage"; // ✅ usando alias definido en vite.config.js
 import { v4 as uuidv4 } from "uuid";
 import URLDraftGenerator from "./URLDraftGenerator";
+import TextDraftGenerator from "./TextDraftGenerator";
+import AIImagePreviewGenerator from "./AIImagePreviewGenerator";
 
 export default function NewsForm({
   form,
@@ -61,23 +63,62 @@ export default function NewsForm({
   };
 
   const handleCropConfirm = async () => {
-    const croppedImage = await getCroppedImg(
-      cropData.imageSrc,
-      cropData.croppedAreaPixels,
-      uuidv4() + ".jpeg"
-    );
-    setForm((prev) => ({
-      ...prev,
-      imagen: croppedImage.file,
-      imagenPreview: croppedImage.url,
-    }));
-    setCropData({
-      imageSrc: null,
-      crop: { x: 0, y: 0 },
-      zoom: 1,
-      croppedAreaPixels: null,
-      cropping: false,
-    });
+    try {
+      console.log("[NewsForm] Iniciando recorte de imagen...");
+      console.log("[NewsForm] croppedAreaPixels:", cropData.croppedAreaPixels);
+      
+      const croppedImage = await getCroppedImg(
+        cropData.imageSrc,
+        cropData.croppedAreaPixels,
+        uuidv4() + ".jpeg"
+      );
+      
+      console.log("[NewsForm] ✅ Imagen recortada:", {
+        fileName: croppedImage.file?.name,
+        fileSize: croppedImage.file?.size,
+        fileType: croppedImage.file?.type,
+        previewUrl: croppedImage.url
+      });
+      
+      // Verificar que tenemos datos válidos
+      if (!croppedImage.file || !croppedImage.url) {
+        console.error("[NewsForm] ❌ Datos de imagen inválidos:", croppedImage);
+        alert("Error: no se pudo procesar la imagen");
+        return;
+      }
+      
+      console.log("[NewsForm] Actualizando form con imagen...");
+      setForm((prev) => {
+        const newForm = {
+          ...prev,
+          imagen: croppedImage.file,
+          imagenPreview: croppedImage.url,
+        };
+        console.log("[NewsForm] Form actualizado:", {
+          tieneImagen: !!newForm.imagen,
+          tienePreview: !!newForm.imagenPreview,
+          previewUrl: newForm.imagenPreview
+        });
+        return newForm;
+      });
+      setCropData({
+        imageSrc: null,
+        crop: { x: 0, y: 0 },
+        zoom: 1,
+        croppedAreaPixels: null,
+        cropping: false,
+      });
+    } catch (error) {
+      console.error("[NewsForm] ❌ Error al recortar imagen:", error);
+      alert("Error al procesar la imagen. Por favor intenta de nuevo.");
+      setCropData({
+        imageSrc: null,
+        crop: { x: 0, y: 0 },
+        zoom: 1,
+        croppedAreaPixels: null,
+        cropping: false,
+      });
+    }
   };
 
   const handleCropCancel = () => {
@@ -102,6 +143,31 @@ export default function NewsForm({
     
     // Mostrar confirmación visual
     console.log("[NewsForm] Borrador desde URL aplicado:", draft.titulo);
+  };
+
+  // Handler para imagen generada con IA
+  const handleAIImageGenerated = async (coverUrl) => {
+    try {
+      console.log("[NewsForm] Imagen IA generada:", coverUrl);
+      
+      // Descargar la imagen y convertirla a File
+      const response = await fetch(coverUrl);
+      const blob = await response.blob();
+      const filename = `ai-cover-${Date.now()}.png`;
+      const file = new File([blob], filename, { type: blob.type });
+      
+      // Actualizar el form con la imagen
+      setForm((prev) => ({
+        ...prev,
+        imagen: file,
+        imagenPreview: coverUrl,
+      }));
+      
+      console.log("[NewsForm] ✅ Imagen IA aplicada como principal");
+    } catch (error) {
+      console.error("[NewsForm] Error al aplicar imagen IA:", error);
+      alert("Error al aplicar la imagen generada");
+    }
   };
 
   return (
@@ -203,6 +269,17 @@ export default function NewsForm({
         {/* Generador desde URL */}
         <URLDraftGenerator onDraftGenerated={handleDraftGenerated} />
 
+        {/* Generador desde texto (pegar noticia) */}
+        <TextDraftGenerator onDraftGenerated={handleDraftGenerated} />
+
+        {/* Generador de imagen con IA */}
+        <AIImagePreviewGenerator
+          title={form.titulo}
+          content={form.contenido}
+          onImageGenerated={handleAIImageGenerated}
+          disabled={!form.titulo?.trim()}
+        />
+
        {/* Imagen principal con crop */}
         <div className="flex flex-col gap-2">
           <label className="text-white">Imagen principal (ajustar miniatura)</label>
@@ -221,14 +298,23 @@ export default function NewsForm({
             className="hidden"
           />
 
-          {form.imagenPreview && (
-            <img
-              src={form.imagenPreview}
-              alt="Miniatura"
-              className="w-full max-w-xl max-h-64 object-cover rounded border border-zinc-700 shadow"
-              style={{ marginTop: "0.5rem" }}
-            />
-          )}
+          {form.imagenPreview ? (
+            <div className="mt-2">
+              <img
+                src={form.imagenPreview}
+                alt="Miniatura"
+                className="w-full max-w-xl max-h-64 object-cover rounded border border-zinc-700 shadow"
+                onError={(e) => {
+                  console.log("[NewsForm] Error cargando preview:", form.imagenPreview);
+                  e.target.style.display = 'none';
+                }}
+                onLoad={() => console.log("[NewsForm] Preview cargado OK")}
+              />
+              <p className="text-xs text-green-400 mt-1">✅ Imagen lista para publicar</p>
+            </div>
+          ) : form.imagen ? (
+            <p className="text-xs text-green-400 mt-2">✅ Imagen cargada (preview no disponible)</p>
+          ) : null}
         </div>
 
         <RichTextEditor

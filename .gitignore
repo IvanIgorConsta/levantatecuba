@@ -1,6 +1,4 @@
 node_modules/
-
-node_modules/
 dist/
 
 # Environment files - NEVER commit secrets
@@ -9,3 +7,17 @@ dist/
 !.env.example
 !.env.*.example
 server/.env
+
+# Media and uploads - too large for git
+public/media/
+server/uploads/
+uploads/
+tmp/
+backups/
+
+# IDE and editor folders
+.cursor/
+.windsurf/
+
+# Temporary/delete folders
+__to_delete__/

@@ -217,7 +217,7 @@ async function generateNewsMetaTags(req, slugOrId) {
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;');
     
-    console.log(`[MetaTags] 🏷️  Meta tags generados para noticia ${newsId}:`);
+    console.log(`[MetaTags] 🏷️  Meta tags generados para noticia ${slugOrId}:`);
     console.log(`[MetaTags]    Título: "${title.substring(0, 50)}..."`);
     console.log(`[MetaTags]    Imagen: ${imageUrl}`);
     console.log(`[MetaTags]    Fuente imagen: ${imageSource}`);
@@ -250,7 +250,7 @@ async function generateNewsMetaTags(req, slugOrId) {
     return {
       title: 'LevantateCuba - Noticias',
       description: 'Portal de noticias e información sobre Cuba',
-      url: `${publicOrigin}/noticias/${newsId}`,
+      url: `${publicOrigin}/noticias/${slugOrId}`,
       image: `${publicOrigin}/img/og-default.jpg`,
       imageWidth: 1200,
       imageHeight: 630,
