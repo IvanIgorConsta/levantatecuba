@@ -12,21 +12,30 @@ export default function HeroLevantateCuba() {
         <div className="w-[36rem] h-[36rem] rounded-full bg-red-600/10 blur-3xl" />
       </div>
 
-      {/* Logo */}
-      <img
-        src="/img/levantatecubaLogo.png"
-        alt="Logo LevántateCuba"
-        className="relative w-40 md:w-56 mb-6 drop-shadow-[0_0_25px_rgba(255,0,0,0.5)]"
-        loading="eager"
-        decoding="async"
-      />
+      {/* Logo - renderizado instantáneo sin transiciones */}
+      <div 
+        className="relative w-40 md:w-56 h-40 md:h-56 mb-6 flex items-center justify-center"
+        style={{ animation: 'none', transition: 'none' }}
+      >
+        <img
+          src="/img/levantatecubaLogo.png"
+          alt="Logo LevántateCuba"
+          width="224"
+          height="224"
+          className="w-full h-full object-contain drop-shadow-[0_0_25px_rgba(255,0,0,0.5)]"
+          style={{ animation: 'none', transition: 'none', opacity: 1, transform: 'none' }}
+          loading="eager"
+          decoding="sync"
+          fetchPriority="high"
+        />
+      </div>
 
       {/* Títulos */}
       <h1 className="relative text-white font-extrabold tracking-tight text-5xl md:text-6xl">
         LevántateCuba
       </h1>
       <p className="relative mt-2 text-white/70 text-lg md:text-xl">
-        Voces libres. Verdad sin censura.
+        Medio digital independiente
       </p>
 
       {/* CTA */}

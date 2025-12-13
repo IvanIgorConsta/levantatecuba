@@ -1,14 +1,17 @@
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
+import { lazy, Suspense } from "react";
 import { motion } from "framer-motion";
 import useTrackPage from "../utils/useTrackPage";
 import PropTypes from "prop-types";
 import { Newspaper, Megaphone, ShoppingBag, ArrowRight } from "lucide-react";
-import PuenteLibreHero from "../components/PuenteLibreHero";
 import HeroLevantateCuba from "../components/HeroLevantateCuba";
 import SectionDivider from "../components/ui/SectionDivider";
-import TasasMercado from "../components/TasasMercado";
-import DonateButton from "../components/DonateButton";
+
+// Lazy load componentes pesados para que el Hero renderice primero
+const TasasMercado = lazy(() => import("../components/TasasMercado"));
+const PuenteLibreHero = lazy(() => import("../components/PuenteLibreHero"));
+const DonateButton = lazy(() => import("../components/DonateButton"));
 
 const SectionCardModern = ({ to, icon, title, text, onClick, className = "" }) => (
   <Link
@@ -50,20 +53,22 @@ export default function Home() {
       {/* Línea */}
       <SectionDivider className="py-6" variant="strong" />
 
-      {/* Tasas */}
-      <motion.section
-        initial={{ opacity: 0, y: 40 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.7, ease: "easeOut" }}
-        viewport={{ once: true }}
-        className="px-4 sm:px-6 md:px-20 py-12 md:py-16"
-      >
-        <div className="max-w-5xl mx-auto">
-          <div className="my-8">
-            <TasasMercado sharePath="/tasas" />
+      {/* Tasas - lazy loaded */}
+      <Suspense fallback={<div className="py-16" />}>
+        <motion.section
+          initial={{ opacity: 0, y: 40 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.7, ease: "easeOut" }}
+          viewport={{ once: true }}
+          className="px-4 sm:px-6 md:px-20 py-12 md:py-16"
+        >
+          <div className="max-w-5xl mx-auto">
+            <div className="my-8">
+              <TasasMercado sharePath="/tasas" />
+            </div>
           </div>
-        </div>
-      </motion.section>
+        </motion.section>
+      </Suspense>
 
       {/* Línea */}
       <SectionDivider className="py-6" variant="strong" />
@@ -135,8 +140,10 @@ export default function Home() {
 
       <SectionDivider className="py-6" variant="strong" />
 
-      {/* Puente Libre */}
-      <PuenteLibreHero />
+      {/* Puente Libre - lazy loaded */}
+      <Suspense fallback={<div className="py-16" />}>
+        <PuenteLibreHero />
+      </Suspense>
 
       <SectionDivider className="py-6" variant="strong" />
 
@@ -149,7 +156,9 @@ export default function Home() {
             para seguir informando, inspirando y defendiendo la verdad desde el exilio.
           </p>
           <div className="flex justify-center">
-            <DonateButton />
+            <Suspense fallback={<div className="h-12" />}>
+              <DonateButton />
+            </Suspense>
           </div>
         </div>
       </section>
